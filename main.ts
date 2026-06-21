@@ -12,8 +12,7 @@ function isJsonContentType(contentType: string | null): boolean {
   const [mediaType] = contentType.split(";", 1);
   const normalizedMediaType = mediaType.trim().toLowerCase();
 
-  return normalizedMediaType === "application/json" ||
-    normalizedMediaType.endsWith("+json");
+  return normalizedMediaType === "application/json";
 }
 
 function jsonError(message: string, status = 400): Response {
@@ -45,19 +44,27 @@ export async function handler(req: Request): Promise<Response> {
       return jsonError("request body is required");
     }
 
-    const body: unknown = JSON.parse(rawBody);
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return jsonError("request body must be valid JSON");
+    }
 
     if (
       typeof body !== "object" ||
       body === null ||
       !("title" in body) ||
-      typeof body.title !== "string" ||
-      body.title.trim().length === 0
+      typeof body.title !== "string"
     ) {
       return jsonError("title is required");
     }
 
     const title: string = body.title.trim();
+    if (title.length === 0) {
+      return jsonError("title is required");
+    }
+
     if (title.length > MAX_TODO_TITLE_LENGTH) {
       return jsonError("title is too long");
     }
@@ -70,7 +77,7 @@ export async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "method not allowed" }), {
       status: 405,
       headers: {
-        "allow": "GET, POST",
+        "Allow": "GET, POST",
         "content-type": "application/json; charset=utf-8",
       },
     });

@@ -100,6 +100,40 @@ Deno.test("POST /todos rejects empty json body with explicit error", async () =>
   });
 });
 
+Deno.test("POST /todos rejects invalid json body with explicit error", async () => {
+  resetTodos();
+
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "request body must be valid JSON",
+  });
+});
+
+Deno.test("POST /todos rejects title with only spaces", async () => {
+  resetTodos();
+
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "   " }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "title is required",
+  });
+});
+
 Deno.test("POST /todos rejects title longer than supported limit", async () => {
   resetTodos();
 
@@ -127,7 +161,7 @@ Deno.test("/todos returns 405 with Allow for unsupported methods", async () => {
   );
 
   assertEquals(response.status, 405);
-  assertEquals(response.headers.get("allow"), "GET, POST");
+  assertEquals(response.headers.get("Allow"), "GET, POST");
   assertEquals(await response.json(), {
     error: "method not allowed",
   });
