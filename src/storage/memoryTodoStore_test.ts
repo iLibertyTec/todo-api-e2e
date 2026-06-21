@@ -5,13 +5,13 @@ import {
 } from "@std/assert";
 import { MemoryTodoStore } from "./memoryTodoStore.ts";
 
-deno.test("MemoryTodoStore lista tarefas inicialmente vazio", (): void => {
+Deno.test("MemoryTodoStore lista tarefas inicialmente vazio", (): void => {
   const store = new MemoryTodoStore();
 
   assertEquals(store.list(), []);
 });
 
-deno.test("MemoryTodoStore cria tarefa com título válido", (): void => {
+Deno.test("MemoryTodoStore cria tarefa com título válido", (): void => {
   const store = new MemoryTodoStore();
 
   const todo = store.create({ title: "Comprar pão" });
@@ -24,7 +24,7 @@ deno.test("MemoryTodoStore cria tarefa com título válido", (): void => {
   assertEquals(store.list(), [todo]);
 });
 
-deno.test("MemoryTodoStore rejeita título vazio de forma previsível", (): void => {
+Deno.test("MemoryTodoStore rejeita título vazio de forma previsível", (): void => {
   const store = new MemoryTodoStore();
 
   assertThrows(
@@ -36,7 +36,7 @@ deno.test("MemoryTodoStore rejeita título vazio de forma previsível", (): void
   );
 });
 
-deno.test("MemoryTodoStore não compartilha estado entre instâncias", (): void => {
+Deno.test("MemoryTodoStore não compartilha estado entre instâncias", (): void => {
   const storeA = new MemoryTodoStore();
   const storeB = new MemoryTodoStore();
 
