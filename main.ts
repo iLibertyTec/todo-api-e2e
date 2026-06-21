@@ -1,4 +1,5 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { listTodos } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
@@ -11,6 +12,10 @@ export async function handler(req: Request): Promise<Response> {
       service: "ifactory-product",
       version: "0.1.0",
     });
+  }
+
+  if (url.pathname === "/todos" && req.method === "GET") {
+    return Response.json(listTodos());
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
