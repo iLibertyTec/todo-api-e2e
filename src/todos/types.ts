@@ -6,11 +6,11 @@ export interface Todo {
   updatedAt: string;
 }
 
-export interface CreateTodoInput {
+export type CreateTodoInput = Readonly<{
   title: string;
-}
+}>;
 
-export interface UpdateTodoInput {
+export type UpdateTodoInput = Readonly<{
   title?: string;
   completed?: boolean;
-}
+}>;
