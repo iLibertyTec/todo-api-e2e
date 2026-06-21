@@ -19,6 +19,19 @@ export async function handler(req: Request): Promise<Response> {
     return Response.json(todoStore.list());
   }
 
+  if (url.pathname === "/todos" && req.method === "POST") {
+    const body = req.headers.get("content-type")?.includes("json")
+      ? await req.json().catch(() => ({}))
+      : {};
+
+    if (typeof body.title !== "string") {
+      return Response.json({ error: "title is required" }, { status: 400 });
+    }
+
+    const todo = todoStore.create(body.title);
+    return Response.json(todo, { status: 201 });
+  }
+
   if (url.pathname === "/api/visits" && req.method === "GET") {
     return Response.json(counter.state);
   }

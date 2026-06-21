@@ -16,6 +16,49 @@ Deno.test("GET /todos returns empty array with fresh store", async () => {
   assertEquals(await response.json(), []);
 });
 
+Deno.test("POST /todos creates todo and GET /todos returns it", async () => {
+  const createResponse = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title: "Nova tarefa" }),
+    }),
+  );
+
+  assertEquals(createResponse.status, 201);
+  assertMatch(
+    createResponse.headers.get("content-type") ?? "",
+    /application\/json/,
+  );
+
+  const createdTodo = await createResponse.json();
+  assertEquals(createdTodo.title, "Nova tarefa");
+  assertEquals(createdTodo.completed, false);
+  assertEquals(typeof createdTodo.id, "string");
+  assertEquals(typeof createdTodo.createdAt, "string");
+
+  const listResponse = await handler(new Request("http://localhost/todos"));
+  assertEquals(listResponse.status, 200);
+  assertEquals(await listResponse.json(), [createdTodo]);
+});
+
+Deno.test("POST /todos validates required title", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "title is required" });
+});
+
 Deno.test("GET /todos does not conflict with existing static routes", async () => {
   const todosResponse = await handler(new Request("http://localhost/todos"));
   assertEquals(todosResponse.status, 200);
