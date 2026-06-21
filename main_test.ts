@@ -4,9 +4,11 @@ import {
   assertInstanceOf,
 } from "@std/assert";
 import { handler } from "./main.ts";
-import { listTodos } from "./src/todos.ts";
+import { listTodos, resetTodos } from "./src/todos.ts";
 
 Deno.test("GET /todos returns 200 with a JSON array body", async () => {
+  resetTodos();
+
   const response = await handler(new Request("http://localhost/todos"));
 
   assertEquals(response.status, 200);
@@ -21,6 +23,7 @@ Deno.test("GET /todos returns 200 with a JSON array body", async () => {
 });
 
 Deno.test("POST /todos creates a todo and GET /todos includes it", async () => {
+  resetTodos();
   const title = `Nova tarefa ${crypto.randomUUID()}`;
 
   const createResponse = await handler(
@@ -65,6 +68,8 @@ Deno.test("POST /todos creates a todo and GET /todos includes it", async () => {
 });
 
 Deno.test("POST /todos rejects non-json content-type with explicit error", async () => {
+  resetTodos();
+
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
@@ -81,6 +86,8 @@ Deno.test("POST /todos rejects non-json content-type with explicit error", async
 });
 
 Deno.test("POST /todos rejects invalid json body with explicit error", async () => {
+  resetTodos();
+
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
