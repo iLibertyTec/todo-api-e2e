@@ -3,6 +3,15 @@ import { createTodo, listTodos } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
+function isJsonContentType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const [mediaType] = contentType.split(";", 1);
+  return mediaType.trim().toLowerCase() === "application/json";
+}
+
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
@@ -19,13 +28,27 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/todos" && req.method === "POST") {
-    const contentType: string | null = req.headers.get("content-type");
-
-    if (!contentType?.includes("application/json")) {
-      return Response.json({ error: "invalid json body" }, { status: 400 });
+    if (!isJsonContentType(req.headers.get("content-type"))) {
+      return Response.json(
+        {
+          error: "content-type must be application/json",
+          persistence: "in-memory",
+        },
+        { status: 400 },
+      );
     }
 
     const body: unknown = await req.json().catch(() => undefined);
+
+    if (body === undefined) {
+      return Response.json(
+        {
+          error: "invalid json body",
+          persistence: "in-memory",
+        },
+        { status: 400 },
+      );
+    }
 
     if (
       typeof body !== "object" ||
@@ -34,7 +57,13 @@ export async function handler(req: Request): Promise<Response> {
       typeof body.title !== "string" ||
       body.title.trim().length === 0
     ) {
-      return Response.json({ error: "title is required" }, { status: 400 });
+      return Response.json(
+        {
+          error: "title is required",
+          persistence: "in-memory",
+        },
+        { status: 400 },
+      );
     }
 
     const todo = createTodo(body.title);

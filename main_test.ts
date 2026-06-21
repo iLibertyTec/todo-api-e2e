@@ -26,7 +26,7 @@ Deno.test("POST /todos creates a todo and GET /todos includes it", async () => {
   const createResponse = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({ title }),
     }),
   );
@@ -62,6 +62,38 @@ Deno.test("POST /todos creates a todo and GET /todos includes it", async () => {
       return todoItem.id === todoRecord.id && todoItem.title === title;
     }),
   );
+});
+
+Deno.test("POST /todos rejects non-json content-type with explicit error", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ title: "Teste" }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "content-type must be application/json",
+    persistence: "in-memory",
+  });
+});
+
+Deno.test("POST /todos rejects invalid json body with explicit error", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "invalid json body",
+    persistence: "in-memory",
+  });
 });
 
 Deno.test("GET /health continues working", async () => {
