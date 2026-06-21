@@ -4,6 +4,10 @@ import {
   type ServiceInfo,
 } from "../config/service.ts";
 
+export type HealthPayload = ServiceInfo & {
+  ok: true;
+};
+
 export function getServiceInfo(): ServiceInfo {
   return {
     service: SERVICE_NAME,
@@ -11,12 +15,14 @@ export function getServiceInfo(): ServiceInfo {
   };
 }
 
-export function createHealthResponse(): Response {
-  const serviceInfo = getServiceInfo();
-
-  return Response.json({
+export function createHealthPayload(serviceInfo: ServiceInfo): HealthPayload {
+  return {
     ok: true,
     service: serviceInfo.service,
     version: serviceInfo.version,
-  });
+  };
+}
+
+export function createHealthResponse(): Response {
+  return Response.json(createHealthPayload(getServiceInfo()));
 }
