@@ -15,6 +15,10 @@ export class TodoStore {
     return [...this.#todos];
   }
 
+  getById(id: string): Todo | undefined {
+    return this.#todos.find((todo: Todo) => todo.id === id);
+  }
+
   reset(todos: Todo[] = []): void {
     this.#todos = [...todos];
   }

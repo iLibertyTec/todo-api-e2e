@@ -61,4 +61,34 @@ describe("handler", () => {
     assertEquals(response.status, 200);
     assertEquals(await response.json(), seededTodos);
   });
+
+  Deno.test("GET /todos/:id returns todo when id exists", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+      { id: "2", title: "Segunda tarefa", completed: true },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(new Request("http://localhost/todos/2"), {
+      todos,
+    });
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), seededTodos[1]);
+  });
+
+  Deno.test("GET /todos/:id returns 404 when id does not exist", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/inexistente"),
+      {
+        todos,
+      },
+    );
+
+    assertEquals(response.status, 404);
+    assertEquals(await response.json(), { error: "todo not found" });
+  });
 });

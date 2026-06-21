@@ -29,6 +29,17 @@ export async function handler(
     return Response.json(deps.todos.list());
   }
 
+  if (url.pathname.startsWith("/todos/") && req.method === "GET") {
+    const id = url.pathname.slice("/todos/".length);
+    const todo = deps.todos.getById(id);
+
+    if (!todo) {
+      return Response.json({ error: "todo not found" }, { status: 404 });
+    }
+
+    return Response.json(todo);
+  }
+
   if (url.pathname === "/api/visits" && req.method === "GET") {
     return Response.json(counter.state);
   }
