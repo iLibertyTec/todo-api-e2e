@@ -1,8 +1,20 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { todoStore, type TodoStore } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
-export async function handler(req: Request): Promise<Response> {
+export type AppDependencies = {
+  todos: TodoStore;
+};
+
+const defaultDependencies: AppDependencies = {
+  todos: todoStore,
+};
+
+export async function handler(
+  req: Request,
+  deps: AppDependencies = defaultDependencies,
+): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
@@ -11,6 +23,10 @@ export async function handler(req: Request): Promise<Response> {
       service: "ifactory-product",
       version: "0.1.0",
     });
+  }
+
+  if (url.pathname === "/todos" && req.method === "GET") {
+    return Response.json(deps.todos.list());
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
@@ -71,5 +87,5 @@ refresh();
 if (import.meta.main) {
   const port = Number(Deno.env.get("PORT") ?? 8000);
   console.log(`iFactory Product on http://localhost:${port}`);
-  Deno.serve({ port }, handler);
+  Deno.serve({ port }, (req: Request) => handler(req));
 }
