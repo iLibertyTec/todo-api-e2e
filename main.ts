@@ -1,7 +1,7 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { SERVICE_NAME } from "./src/config/service.ts";
 import { handleHealth } from "./src/handlers/health.ts";
 import { handleCreateTodo, handleListTodos } from "./src/handlers/todos.ts";
-import { SERVICE_NAME } from "./src/config/service.ts";
 import { MemoryTodoStore } from "./src/storage/memoryTodoStore.ts";
 
 const counter = new VisitCounter();
