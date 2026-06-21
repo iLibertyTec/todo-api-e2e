@@ -1,16 +1,13 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { healthHandler } from "./src/handlers/healthHandler.ts";
 
 const counter = new VisitCounter();
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
-  if (url.pathname === "/health") {
-    return Response.json({
-      ok: true,
-      service: "ifactory-product",
-      version: "0.1.0",
-    });
+  if (url.pathname === "/health" && req.method === "GET") {
+    return healthHandler();
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
@@ -18,8 +15,9 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
+    const body: { visitorId?: unknown } = req.headers.get("content-type")
+        ?.includes("json")
+      ? await req.json().catch((): Record<string, never> => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
