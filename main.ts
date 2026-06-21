@@ -1,8 +1,11 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
 import { handleHealth } from "./src/handlers/health.ts";
+import { handleCreateTodo, handleListTodos } from "./src/handlers/todos.ts";
+import { MemoryTodoStore } from "./src/storage/memoryTodoStore.ts";
 import { SERVICE_NAME } from "./src/config/service.ts";
 
 const counter = new VisitCounter();
+const todoStore = new MemoryTodoStore();
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -39,6 +42,16 @@ export async function handler(req: Request): Promise<Response> {
       ...state,
       message: formatCounterMessage(state),
     });
+  }
+
+  if (url.pathname === "/api/todos") {
+    if (req.method === "GET") {
+      return handleListTodos(req, todoStore);
+    }
+
+    if (req.method === "POST") {
+      return await handleCreateTodo(req, todoStore);
+    }
   }
 
   if (url.pathname === "/") {
