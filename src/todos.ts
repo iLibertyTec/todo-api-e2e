@@ -34,8 +34,32 @@ export class InMemoryTodoRepository {
     }
   }
 
+  create(title: string): Todo {
+    if (!isValidTitle(title)) {
+      throw new Error("Todo title must not be empty.");
+    }
+
+    const todo: Todo = {
+      id: crypto.randomUUID(),
+      title,
+      completed: false,
+    };
+
+    this.#todos.set(todo.id, todo);
+    return { ...todo };
+  }
+
+  clear(): void {
+    this.#todos.clear();
+  }
+
   list(): Todo[] {
     return Array.from(this.#todos.values(), (todo: Todo) => ({ ...todo }));
+  }
+
+  getById(id: string): Todo | null {
+    const todo = this.#todos.get(id);
+    return todo ? { ...todo } : null;
   }
 
   findById(id: string): Todo | null {
@@ -54,6 +78,7 @@ export class InMemoryTodoRepository {
     const updated: Todo = {
       ...current,
       ...patch,
+      id: current.id,
     };
 
     this.#todos.set(id, updated);

@@ -98,6 +98,117 @@ denoTest("GET /todos/:id does not match extra path segments", async (): Promise<
   assertEquals(await response.json(), { error: "not found" });
 });
 
+denoTest("PATCH /todos/:id updates only title", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Título inicial");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Título atualizado" }),
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    id: todo.id,
+    title: "Título atualizado",
+    completed: false,
+  });
+});
+
+denoTest("PATCH /todos/:id updates only completed", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Concluir tarefa");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ completed: true }),
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    id: todo.id,
+    title: "Concluir tarefa",
+    completed: true,
+  });
+});
+
+denoTest("PATCH /todos/:id updates title and completed and ignores id", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Original");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "outro-id",
+        title: "Atualizada",
+        completed: true,
+      }),
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    id: todo.id,
+    title: "Atualizada",
+    completed: true,
+  });
+});
+
+denoTest("PATCH /todos/:id returns 404 when todo does not exist", async (): Promise<void> => {
+  resetTodos();
+
+  const response = await handler(
+    new Request("http://localhost/todos/inexistente", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Novo título" }),
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assertEquals(await response.json(), { error: "not found" });
+});
+
+denoTest("PATCH /todos/:id returns 400 for malformed json", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Teste json");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid json" });
+});
+
+denoTest("PATCH /todos/:id returns 400 for invalid payload", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Teste payload");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ completed: "sim" }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid payload" });
+});
+
 denoTest("GET / returns html page", async (): Promise<void> => {
   const response = await handler(new Request("http://localhost/"));
 
