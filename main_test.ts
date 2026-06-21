@@ -186,43 +186,52 @@ describe("handler", () => {
     assertEquals(await response.json(), { error: "todo not found" });
   });
 
-  Deno.test("PATCH /todos/:id returns 400 when payload has no editable fields", async () => {
+  Deno.test("DELETE /todos/:id removes todo and it no longer appears in reads", async () => {
     const seededTodos: Todo[] = [
       { id: "1", title: "Primeira tarefa", completed: false },
+      { id: "2", title: "Segunda tarefa", completed: true },
     ];
     const todos = new TodoStore(seededTodos);
-    const response = await handler(
+
+    const deleteResponse = await handler(
       new Request("http://localhost/todos/1", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: "2" }),
+        method: "DELETE",
       }),
       { todos },
     );
 
-    assertEquals(response.status, 400);
-    assertEquals(await response.json(), {
-      error: "no editable fields provided",
+    assertEquals(deleteResponse.status, 204);
+    assertEquals(await deleteResponse.text(), "");
+
+    const listResponse = await handler(new Request("http://localhost/todos"), {
+      todos,
     });
-    assertEquals(todos.getById("1"), seededTodos[0]);
+    assertEquals(listResponse.status, 200);
+    assertEquals(await listResponse.json(), [seededTodos[1]]);
+
+    const getDeletedResponse = await handler(
+      new Request("http://localhost/todos/1"),
+      { todos },
+    );
+    assertEquals(getDeletedResponse.status, 404);
+    assertEquals(await getDeletedResponse.json(), { error: "todo not found" });
   });
 
-  Deno.test("PATCH /todos/:id returns 400 when payload is invalid", async () => {
+  Deno.test("DELETE /todos/:id returns 404 when id does not exist", async () => {
     const seededTodos: Todo[] = [
       { id: "1", title: "Primeira tarefa", completed: false },
     ];
     const todos = new TodoStore(seededTodos);
+
     const response = await handler(
-      new Request("http://localhost/todos/1", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ completed: "sim" }),
+      new Request("http://localhost/todos/inexistente", {
+        method: "DELETE",
       }),
       { todos },
     );
 
-    assertEquals(response.status, 400);
-    assertEquals(await response.json(), { error: "invalid completed" });
-    assertEquals(todos.getById("1"), seededTodos[0]);
+    assertEquals(response.status, 404);
+    assertEquals(await response.json(), { error: "todo not found" });
+    assertEquals(todos.list(), seededTodos);
   });
 });

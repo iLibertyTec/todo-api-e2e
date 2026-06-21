@@ -44,6 +44,12 @@ export class TodoStore {
     return updated;
   }
 
+  delete(id: string): boolean {
+    const initialLength = this.#todos.length;
+    this.#todos = this.#todos.filter((todo: Todo) => todo.id !== id);
+    return this.#todos.length !== initialLength;
+  }
+
   reset(todos: Todo[] = []): void {
     this.#todos = [...todos];
   }
