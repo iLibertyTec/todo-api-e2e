@@ -1,10 +1,6 @@
 import { assertEquals } from "@std/assert";
-import {
-  createHealthPayload,
-  createHealthResponse,
-  getServiceInfo,
-} from "./health.ts";
-import { SERVICE_NAME, SERVICE_VERSION } from "../config/service.ts";
+import { SERVICE_NAME, SERVICE_VERSION, getServiceInfo } from "../config/service.ts";
+import { createHealthPayload, handleHealth } from "./health.ts";
 
 Deno.test("getServiceInfo returns service metadata from config", () => {
   assertEquals(getServiceInfo(), {
@@ -24,13 +20,18 @@ Deno.test("createHealthPayload builds the health contract from service info", ()
   );
 });
 
-Deno.test("createHealthResponse returns status, content-type and payload", async () => {
-  const response = createHealthResponse();
+Deno.test("handleHealth returns status, content-type and payload", async () => {
+  const request = new Request("http://localhost/health", { method: "GET" });
+  const response = handleHealth(request);
 
   assertEquals(response.status, 200);
   assertEquals(
-    response.headers.get("content-type")?.includes("application/json"),
-    true,
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-  assertEquals(await response.json(), createHealthPayload(getServiceInfo()));
+  assertEquals(await response.json(), {
+    ok: true,
+    service: SERVICE_NAME,
+    version: SERVICE_VERSION,
+  });
 });

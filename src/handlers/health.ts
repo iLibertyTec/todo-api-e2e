@@ -1,19 +1,8 @@
-import {
-  SERVICE_NAME,
-  SERVICE_VERSION,
-  type ServiceInfo,
-} from "../config/service.ts";
+import { getServiceInfo, type ServiceInfo } from "../config/service.ts";
 
 export type HealthPayload = ServiceInfo & {
   ok: true;
 };
-
-export function getServiceInfo(): ServiceInfo {
-  return {
-    service: SERVICE_NAME,
-    version: SERVICE_VERSION,
-  };
-}
 
 export function createHealthPayload(serviceInfo: ServiceInfo): HealthPayload {
   return {
@@ -23,6 +12,11 @@ export function createHealthPayload(serviceInfo: ServiceInfo): HealthPayload {
   };
 }
 
-export function createHealthResponse(): Response {
-  return Response.json(createHealthPayload(getServiceInfo()));
+export function handleHealth(_req: Request): Response {
+  return new Response(JSON.stringify(createHealthPayload(getServiceInfo())), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+    },
+  });
 }
