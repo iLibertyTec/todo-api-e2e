@@ -5,7 +5,25 @@ import type {
 } from "../types/todo.ts";
 
 function badRequest(message: string): Response {
-  return Response.json({ error: message }, { status: 400 });
+  return Response.json(
+    {
+      error: {
+        code: "INVALID_PAYLOAD",
+        message,
+      },
+    },
+    { status: 400 },
+  );
+}
+
+function isJsonContentType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const mediaType: string = contentType.split(";", 1)[0].trim().toLowerCase();
+
+  return mediaType === "application/json" || mediaType.endsWith("+json");
 }
 
 function parseCreateTodoInput(body: unknown): CreateTodoInput | null {
@@ -36,7 +54,7 @@ export async function handleCreateTodo(
   req: Request,
   store: TodoStore,
 ): Promise<Response> {
-  if (!req.headers.get("content-type")?.includes("json")) {
+  if (!isJsonContentType(req.headers.get("content-type"))) {
     return badRequest("invalid payload");
   }
 
