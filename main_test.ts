@@ -16,6 +16,35 @@ Deno.test("GET /todos returns empty array with fresh store", async () => {
   assertEquals(await response.json(), []);
 });
 
+Deno.test("GET /todos does not conflict with existing static routes", async () => {
+  const todosResponse = await handler(new Request("http://localhost/todos"));
+  assertEquals(todosResponse.status, 200);
+  assertEquals(await todosResponse.json(), []);
+
+  const healthResponse = await handler(new Request("http://localhost/health"));
+  assertEquals(healthResponse.status, 200);
+  assertEquals(await healthResponse.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+
+  const visitsResponse = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+  assertEquals(visitsResponse.status, 200);
+  assertEquals(await visitsResponse.json(), {
+    visits: 0,
+    lastVisitor: null,
+  });
+
+  const rootResponse = await handler(new Request("http://localhost/"));
+  assertEquals(rootResponse.status, 200);
+  assert(
+    (rootResponse.headers.get("content-type") ?? "").includes("text/html"),
+  );
+});
+
 Deno.test("existing endpoints remain available", async () => {
   const healthResponse = await handler(new Request("http://localhost/health"));
   assertEquals(healthResponse.status, 200);
