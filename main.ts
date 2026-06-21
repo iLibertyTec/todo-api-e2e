@@ -1,5 +1,9 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { healthHandler } from "./src/handlers/healthHandler.ts";
+import { healthHandler, methodNotAllowed } from "./src/handlers/healthHandler.ts";
+
+interface RecordVisitRequestBody {
+  visitorId?: unknown;
+}
 
 const counter = new VisitCounter();
 
@@ -7,7 +11,11 @@ export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return healthHandler(req.method);
+    if (req.method === "GET") {
+      return healthHandler();
+    }
+
+    return methodNotAllowed(["GET"]);
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
@@ -15,9 +23,9 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body: { visitorId?: unknown } = req.headers.get("content-type")
+    const body: RecordVisitRequestBody = req.headers.get("content-type")
         ?.includes("json")
-      ? await req.json().catch((): Record<string, never> => ({}))
+      ? await req.json().catch((): RecordVisitRequestBody => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
