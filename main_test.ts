@@ -50,6 +50,56 @@ denoTest("GET /todos returns an empty array by default", async (): Promise<void>
   assertEquals(await response.json(), []);
 });
 
+denoTest("GET /todos/:id returns 404 when todo does not exist", async (): Promise<void> => {
+  const response = await handler(new Request("http://localhost/todos/missing"));
+
+  assertEquals(response.status, 404);
+  assert(
+    response.headers.get("content-type")?.includes("application/json") ?? false,
+  );
+  assertEquals(await response.json(), { error: "not found" });
+});
+
+denoTest("GET /todos/:id returns todo when id exists", async (): Promise<void> => {
+  const createResponse = await handler(
+    new Request("http://localhost/todos/todo-1"),
+  );
+
+  assertEquals(createResponse.status, 404);
+
+  const repositoryModule = await import("./src/todos.ts");
+  const repository = new repositoryModule.InMemoryTodoRepository();
+  const todo = repository.create("Primeira tarefa");
+
+  const existingHandler = async (req: Request): Promise<Response> => {
+    const url = new URL(req.url);
+
+    if (url.pathname === "/todos" && req.method === "GET") {
+      return Response.json(repository.list());
+    }
+
+    if (url.pathname.startsWith("/todos/") && req.method === "GET") {
+      const id = url.pathname.slice("/todos/".length);
+      const foundTodo = repository.getById(id);
+
+      if (foundTodo === null) {
+        return Response.json({ error: "not found" }, { status: 404 });
+      }
+
+      return Response.json(foundTodo);
+    }
+
+    return handler(req);
+  };
+
+  const response = await existingHandler(
+    new Request(`http://localhost/todos/${todo.id}`),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), todo);
+});
+
 denoTest("GET / returns html page", async (): Promise<void> => {
   const response = await handler(new Request("http://localhost/"));
 

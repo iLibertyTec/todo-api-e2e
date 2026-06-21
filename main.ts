@@ -37,6 +37,17 @@ export async function handler(req: Request): Promise<Response> {
     return Response.json(todoRepository.list());
   }
 
+  if (url.pathname.startsWith("/todos/") && req.method === "GET") {
+    const id = url.pathname.slice("/todos/".length);
+    const todo = todoRepository.getById(id);
+
+    if (todo === null) {
+      return Response.json({ error: "not found" }, { status: 404 });
+    }
+
+    return Response.json(todo);
+  }
+
   if (url.pathname === "/") {
     const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
