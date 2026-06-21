@@ -23,11 +23,11 @@ export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    if (req.method === "GET") {
-      return healthHandler();
+    if (req.method === "GET" || req.method === "HEAD") {
+      return healthHandler(req.method);
     }
 
-    return methodNotAllowed(["GET"]);
+    return methodNotAllowed(["GET", "HEAD"]);
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {

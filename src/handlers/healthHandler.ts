@@ -1,6 +1,6 @@
 import { appInfo } from "../config/appInfo.ts";
 
-export type HttpMethod = "GET" | "POST";
+export type HttpMethod = "GET" | "HEAD" | "POST";
 
 export interface HealthResponseBody {
   ok: true;
@@ -13,14 +13,14 @@ export interface MethodNotAllowedBody {
   allowed: HttpMethod[];
 }
 
-export function healthHandler(): Response {
+export function healthHandler(method: "GET" | "HEAD" = "GET"): Response {
   const body: HealthResponseBody = {
     ok: true,
     service: appInfo.service,
     version: appInfo.version,
   };
 
-  return new Response(JSON.stringify(body), {
+  return new Response(method === "HEAD" ? null : JSON.stringify(body), {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",
