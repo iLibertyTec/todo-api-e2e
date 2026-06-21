@@ -4,6 +4,11 @@ export type Todo = {
   completed: boolean;
 };
 
+export type UpdateTodoInput = {
+  title?: string;
+  completed?: boolean;
+};
+
 export class TodoStore {
   #todos: Todo[];
 
@@ -17,6 +22,26 @@ export class TodoStore {
 
   getById(id: string): Todo | undefined {
     return this.#todos.find((todo: Todo) => todo.id === id);
+  }
+
+  update(id: string, updates: UpdateTodoInput): Todo | undefined {
+    const index = this.#todos.findIndex((todo: Todo) => todo.id === id);
+
+    if (index === -1) {
+      return undefined;
+    }
+
+    const current: Todo = this.#todos[index];
+    const updated: Todo = {
+      ...current,
+      ...updates,
+    };
+
+    this.#todos = this.#todos.map((todo: Todo, todoIndex: number) =>
+      todoIndex === index ? updated : todo
+    );
+
+    return updated;
   }
 
   reset(todos: Todo[] = []): void {

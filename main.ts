@@ -1,5 +1,9 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { todoStore, type TodoStore } from "./src/todos.ts";
+import {
+  todoStore,
+  type TodoStore,
+  type UpdateTodoInput,
+} from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
@@ -10,6 +14,42 @@ export type AppDependencies = {
 const defaultDependencies: AppDependencies = {
   todos: todoStore,
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseTodoPatchPayload(body: unknown):
+  | { ok: true; value: UpdateTodoInput }
+  | { ok: false; error: string } {
+  if (!isRecord(body)) {
+    return { ok: false, error: "invalid payload" };
+  }
+
+  const updates: UpdateTodoInput = {};
+
+  if ("title" in body) {
+    if (typeof body.title !== "string") {
+      return { ok: false, error: "invalid title" };
+    }
+
+    updates.title = body.title;
+  }
+
+  if ("completed" in body) {
+    if (typeof body.completed !== "boolean") {
+      return { ok: false, error: "invalid completed" };
+    }
+
+    updates.completed = body.completed;
+  }
+
+  if (updates.title === undefined && updates.completed === undefined) {
+    return { ok: false, error: "no editable fields provided" };
+  }
+
+  return { ok: true, value: updates };
+}
 
 export async function handler(
   req: Request,
@@ -38,6 +78,24 @@ export async function handler(
     }
 
     return Response.json(todo);
+  }
+
+  if (url.pathname.startsWith("/todos/") && req.method === "PATCH") {
+    const id = url.pathname.slice("/todos/".length);
+    const body: unknown = await req.json().catch(() => undefined);
+    const parsed = parseTodoPatchPayload(body);
+
+    if (!parsed.ok) {
+      return Response.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const updated = deps.todos.update(id, parsed.value);
+
+    if (!updated) {
+      return Response.json({ error: "todo not found" }, { status: 404 });
+    }
+
+    return Response.json(updated);
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
