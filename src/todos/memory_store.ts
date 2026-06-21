@@ -16,6 +16,14 @@ export interface TodoStoreDependencies {
   now?: () => string;
 }
 
+function cloneTodo(todo: Todo): Todo {
+  return { ...todo };
+}
+
+function freezeTodo(todo: Todo): Todo {
+  return Object.freeze({ ...todo });
+}
+
 export class InMemoryTodoStore implements TodoStore {
   readonly #todos: Map<string, Todo>;
   readonly #createId: () => string;
@@ -23,28 +31,28 @@ export class InMemoryTodoStore implements TodoStore {
 
   constructor(dependencies: TodoStoreDependencies = {}) {
     this.#todos = new Map<string, Todo>();
-    this.#createId = dependencies.createId ?? crypto.randomUUID;
+    this.#createId = dependencies.createId ?? (() => crypto.randomUUID());
     this.#now = dependencies.now ?? (() => new Date().toISOString());
   }
 
   create(input: CreateTodoInput): Todo {
     const validatedInput = validateCreateTodoInput(input);
     const timestamp = this.#now();
-    const todo: Todo = {
+    const todo = freezeTodo({
       id: this.#createId(),
       title: validatedInput.title,
       completed: false,
       createdAt: timestamp,
       updatedAt: timestamp,
-    };
+    });
 
     this.#todos.set(todo.id, todo);
 
-    return { ...todo };
+    return cloneTodo(todo);
   }
 
   list(): Todo[] {
-    return Array.from(this.#todos.values(), (todo: Todo): Todo => ({ ...todo }));
+    return Array.from(this.#todos.values(), cloneTodo);
   }
 
   getById(id: string): Todo | undefined {
@@ -54,7 +62,7 @@ export class InMemoryTodoStore implements TodoStore {
       return undefined;
     }
 
-    return { ...todo };
+    return cloneTodo(todo);
   }
 
   update(id: string, input: UpdateTodoInput): Todo | undefined {
@@ -65,7 +73,7 @@ export class InMemoryTodoStore implements TodoStore {
     }
 
     const validatedInput = validateUpdateTodoInput(input);
-    const next: Todo = {
+    const next = freezeTodo({
       ...current,
       ...(validatedInput.title !== undefined
         ? { title: validatedInput.title }
@@ -74,10 +82,10 @@ export class InMemoryTodoStore implements TodoStore {
         ? { completed: validatedInput.completed }
         : {}),
       updatedAt: this.#now(),
-    };
+    });
 
     this.#todos.set(id, next);
 
-    return { ...next };
+    return cloneTodo(next);
   }
 }

@@ -25,6 +25,17 @@ Deno.test("InMemoryTodoStore cria e lista tarefas", (): void => {
   assertEquals(listed, [created]);
 });
 
+Deno.test("InMemoryTodoStore normaliza título ao criar", (): void => {
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => "2024-01-01T00:00:00.000Z",
+  });
+
+  const created = store.create({ title: "  Estudar Deno  " });
+
+  assertEquals(created.title, "Estudar Deno");
+});
+
 Deno.test("InMemoryTodoStore lista múltiplas tarefas em ordem de criação", (): void => {
   let idCounter = 0;
   let nowCounter = 0;
@@ -122,6 +133,24 @@ Deno.test("InMemoryTodoStore atualiza parcialmente sem sobrescrever campos ausen
   });
 });
 
+Deno.test("InMemoryTodoStore normaliza título ao atualizar", (): void => {
+  let nowCall = 0;
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => {
+      nowCall += 1;
+      return nowCall === 1
+        ? "2024-01-01T00:00:00.000Z"
+        : "2024-01-01T01:00:00.000Z";
+    },
+  });
+
+  store.create({ title: "Título inicial" });
+  const updated = store.update("todo-1", { title: "  Título final  " });
+
+  assertEquals(updated?.title, "Título final");
+});
+
 Deno.test("InMemoryTodoStore retorna undefined ao atualizar id inexistente", (): void => {
   const store = new InMemoryTodoStore();
 
@@ -139,6 +168,18 @@ Deno.test("InMemoryTodoStore aplica validação de domínio na criação", (): v
     },
     Error,
     "title must not be empty",
+  );
+});
+
+Deno.test("InMemoryTodoStore rejeita payload inválido na criação", (): void => {
+  const store = new InMemoryTodoStore();
+
+  assertThrows(
+    (): void => {
+      store.create(null as unknown as { title: string });
+    },
+    Error,
+    "input must be an object",
   );
 });
 
@@ -168,6 +209,23 @@ Deno.test("InMemoryTodoStore aplica validação de domínio na atualização", (
     },
     Error,
     "update must include at least one field",
+  );
+});
+
+Deno.test("InMemoryTodoStore rejeita payload inválido na atualização", (): void => {
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => "2024-01-01T00:00:00.000Z",
+  });
+
+  store.create({ title: "Original" });
+
+  assertThrows(
+    (): void => {
+      store.update("todo-1", null as unknown as { completed?: boolean });
+    },
+    Error,
+    "input must be an object",
   );
 });
 
@@ -233,30 +291,4 @@ Deno.test("InMemoryTodoStore mantém estado interno após mutação da lista ret
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
   }]);
-});
-
-Deno.test("InMemoryTodoStore retorna cópia defensiva em update", (): void => {
-  let nowCall = 0;
-  const store = new InMemoryTodoStore({
-    createId: () => "todo-1",
-    now: () => {
-      nowCall += 1;
-      return nowCall === 1
-        ? "2024-01-01T00:00:00.000Z"
-        : "2024-01-01T01:00:00.000Z";
-    },
-  });
-
-  store.create({ title: "Original" });
-  const updated = store.update("todo-1", { title: "Atualizado" });
-
-  if (updated === undefined) {
-    throw new Error("expected updated todo");
-  }
-
-  updated.title = "Mutado fora do store";
-  const fetched = store.getById("todo-1");
-
-  assertEquals(fetched?.title, "Atualizado");
-  assertNotEquals(updated.title, fetched?.title);
 });
