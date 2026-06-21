@@ -22,7 +22,10 @@ function isSupportedJsonContentType(contentType: string | null): boolean {
   }
 
   const [mediaType] = contentType.split(";", 1);
-  return mediaType.trim().toLowerCase() === "application/json";
+  const normalizedMediaType: string = mediaType.trim().toLowerCase();
+
+  return normalizedMediaType === "application/json" ||
+    normalizedMediaType.endsWith("+json");
 }
 
 function isJsonValue(value: unknown): value is JsonValue {
@@ -72,6 +75,7 @@ async function readBodyText(req: Request): Promise<string | null> {
   const reader: ReadableStreamDefaultReader<Uint8Array> = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let totalBytes: number = 0;
+  let cancelled: boolean = false;
 
   try {
     while (true) {
@@ -83,6 +87,7 @@ async function readBodyText(req: Request): Promise<string | null> {
 
       totalBytes += value.byteLength;
       if (totalBytes > MAX_BODY_BYTES) {
+        cancelled = true;
         await reader.cancel();
         return null;
       }
@@ -90,7 +95,9 @@ async function readBodyText(req: Request): Promise<string | null> {
       chunks.push(value);
     }
   } finally {
-    reader.releaseLock();
+    if (!cancelled) {
+      reader.releaseLock();
+    }
   }
 
   const bodyBytes = new Uint8Array(totalBytes);
@@ -112,7 +119,7 @@ export async function readJsonObject(
       ok: false,
       response: jsonError(
         "invalid_content_type",
-        "Request body must be application/json",
+        "Request body must be JSON",
         400,
       ),
     };
@@ -127,7 +134,7 @@ export async function readJsonObject(
     };
   }
 
-  if (rawBody.trim() === "") {
+  if (rawBody === "") {
     return {
       ok: false,
       response: jsonError("invalid_payload", "Request body is required", 400),

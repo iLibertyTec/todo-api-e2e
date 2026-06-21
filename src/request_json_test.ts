@@ -35,6 +35,30 @@ Deno.test("readJsonObject accepts application/json with charset", async () => {
   }
 });
 
+Deno.test("readJsonObject accepts application/*+json content types", async () => {
+  const payloads = [
+    "application/ld+json",
+    "application/problem+json",
+  ];
+
+  for (const contentType of payloads) {
+    const req = new Request("http://localhost/api/test", {
+      method: "POST",
+      headers: {
+        "content-type": contentType,
+      },
+      body: JSON.stringify({ visitorId: "abc" }),
+    });
+
+    const result = await readJsonObject(req);
+
+    assertEquals(result.ok, true);
+    if (result.ok) {
+      assertEquals(result.value, { visitorId: "abc" });
+    }
+  }
+});
+
 Deno.test("readJsonObject rejects missing payload", async () => {
   const req = new Request("http://localhost/api/test", {
     method: "POST",
@@ -52,6 +76,27 @@ Deno.test("readJsonObject rejects missing payload", async () => {
     assertEquals(await result.response.json(), {
       error: "invalid_payload",
       message: "Request body is required",
+    });
+  }
+});
+
+Deno.test("readJsonObject rejects whitespace-only payload as invalid json", async () => {
+  const req = new Request("http://localhost/api/test", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: "   \n\t  ",
+  });
+
+  const result = await readJsonObject(req);
+
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.response.status, 400);
+    assertEquals(await result.response.json(), {
+      error: "invalid_payload",
+      message: "Request body must be valid JSON",
     });
   }
 });
@@ -113,7 +158,6 @@ Deno.test("readJsonObject rejects unsupported content type", async () => {
     "text/plain",
     "text/json",
     "application/jsonp",
-    "application/ld+json",
   ];
 
   for (const contentType of payloads) {
@@ -132,7 +176,7 @@ Deno.test("readJsonObject rejects unsupported content type", async () => {
       assertEquals(result.response.status, 400);
       assertEquals(await result.response.json(), {
         error: "invalid_content_type",
-        message: "Request body must be application/json",
+        message: "Request body must be JSON",
       });
     }
   }
