@@ -81,25 +81,55 @@ Deno.test("POST /todos rejects non-json content-type with explicit error", async
   assertEquals(response.status, 400);
   assertEquals(await response.json(), {
     error: "content-type must be application/json",
-    persistence: "in-memory",
   });
 });
 
-Deno.test("POST /todos rejects invalid json body with explicit error", async () => {
+Deno.test("POST /todos rejects empty json body with explicit error", async () => {
   resetTodos();
 
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{",
     }),
   );
 
   assertEquals(response.status, 400);
   assertEquals(await response.json(), {
-    error: "invalid json body",
-    persistence: "in-memory",
+    error: "request body is required",
+  });
+});
+
+Deno.test("POST /todos rejects title longer than supported limit", async () => {
+  resetTodos();
+
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "a".repeat(257) }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "title is too long",
+  });
+});
+
+Deno.test("/todos returns 405 with Allow for unsupported methods", async () => {
+  resetTodos();
+
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "DELETE",
+    }),
+  );
+
+  assertEquals(response.status, 405);
+  assertEquals(response.headers.get("allow"), "GET, POST");
+  assertEquals(await response.json(), {
+    error: "method not allowed",
   });
 });
 

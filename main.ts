@@ -2,6 +2,7 @@ import { formatCounterMessage, VisitCounter } from "./counter.ts";
 import { createTodo, listTodos } from "./src/todos.ts";
 
 const counter = new VisitCounter();
+const MAX_TODO_TITLE_LENGTH = 256;
 
 function isJsonContentType(contentType: string | null): boolean {
   if (contentType === null) {
@@ -9,7 +10,14 @@ function isJsonContentType(contentType: string | null): boolean {
   }
 
   const [mediaType] = contentType.split(";", 1);
-  return mediaType.trim().toLowerCase() === "application/json";
+  const normalizedMediaType = mediaType.trim().toLowerCase();
+
+  return normalizedMediaType === "application/json" ||
+    normalizedMediaType.endsWith("+json");
+}
+
+function jsonError(message: string, status = 400): Response {
+  return Response.json({ error: message }, { status });
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -29,26 +37,15 @@ export async function handler(req: Request): Promise<Response> {
 
   if (url.pathname === "/todos" && req.method === "POST") {
     if (!isJsonContentType(req.headers.get("content-type"))) {
-      return Response.json(
-        {
-          error: "content-type must be application/json",
-          persistence: "in-memory",
-        },
-        { status: 400 },
-      );
+      return jsonError("content-type must be application/json");
     }
 
-    const body: unknown = await req.json().catch(() => undefined);
-
-    if (body === undefined) {
-      return Response.json(
-        {
-          error: "invalid json body",
-          persistence: "in-memory",
-        },
-        { status: 400 },
-      );
+    const rawBody: string = await req.text();
+    if (rawBody.trim().length === 0) {
+      return jsonError("request body is required");
     }
+
+    const body: unknown = JSON.parse(rawBody);
 
     if (
       typeof body !== "object" ||
@@ -57,17 +54,26 @@ export async function handler(req: Request): Promise<Response> {
       typeof body.title !== "string" ||
       body.title.trim().length === 0
     ) {
-      return Response.json(
-        {
-          error: "title is required",
-          persistence: "in-memory",
-        },
-        { status: 400 },
-      );
+      return jsonError("title is required");
     }
 
-    const todo = createTodo(body.title);
+    const title: string = body.title.trim();
+    if (title.length > MAX_TODO_TITLE_LENGTH) {
+      return jsonError("title is too long");
+    }
+
+    const todo = createTodo(title);
     return Response.json(todo, { status: 201 });
+  }
+
+  if (url.pathname === "/todos") {
+    return new Response(JSON.stringify({ error: "method not allowed" }), {
+      status: 405,
+      headers: {
+        "allow": "GET, POST",
+        "content-type": "application/json; charset=utf-8",
+      },
+    });
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
