@@ -1,4 +1,5 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { SERVICE_NAME, SERVICE_VERSION } from "./src/config/service.ts";
 
 const counter = new VisitCounter();
 
@@ -8,8 +9,8 @@ export async function handler(req: Request): Promise<Response> {
   if (url.pathname === "/health") {
     return Response.json({
       ok: true,
-      service: "ifactory-product",
-      version: "0.1.0",
+      service: SERVICE_NAME,
+      version: SERVICE_VERSION,
     });
   }
 
@@ -70,6 +71,6 @@ refresh();
 
 if (import.meta.main) {
   const port = Number(Deno.env.get("PORT") ?? 8000);
-  console.log(`iFactory Product on http://localhost:${port}`);
+  console.log(`${SERVICE_NAME} on http://localhost:${port}`);
   Deno.serve({ port }, handler);
 }
