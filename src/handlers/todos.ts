@@ -4,8 +4,21 @@ import type {
   TodoStore,
 } from "../types/todo.ts";
 
+function jsonResponse(body: unknown, init?: ResponseInit): Response {
+  const headers: Headers = new Headers(init?.headers);
+
+  if (!headers.has("content-type")) {
+    headers.set("content-type", "application/json; charset=utf-8");
+  }
+
+  return Response.json(body, {
+    ...init,
+    headers,
+  });
+}
+
 function badRequest(message: string): Response {
-  return Response.json(
+  return jsonResponse(
     {
       error: {
         code: "INVALID_PAYLOAD",
@@ -13,6 +26,18 @@ function badRequest(message: string): Response {
       },
     },
     { status: 400 },
+  );
+}
+
+function methodNotAllowed(allow: string): Response {
+  return jsonResponse(
+    { error: "method not allowed" },
+    {
+      status: 405,
+      headers: {
+        allow,
+      },
+    },
   );
 }
 
@@ -42,18 +67,26 @@ function parseCreateTodoInput(body: unknown): CreateTodoInput | null {
   };
 }
 
-export function handleListTodos(store: TodoStore): Response {
+export function handleListTodos(req: Request, store: TodoStore): Response {
+  if (req.method !== "GET") {
+    return methodNotAllowed("GET");
+  }
+
   const response: TodoListResponse = {
     items: store.list(),
   };
 
-  return Response.json(response);
+  return jsonResponse(response);
 }
 
 export async function handleCreateTodo(
   req: Request,
   store: TodoStore,
 ): Promise<Response> {
+  if (req.method !== "POST") {
+    return methodNotAllowed("POST");
+  }
+
   if (!isJsonContentType(req.headers.get("content-type"))) {
     return badRequest("invalid payload");
   }
@@ -66,5 +99,5 @@ export async function handleCreateTodo(
   }
 
   const todo = store.create(input);
-  return Response.json(todo, { status: 201 });
+  return jsonResponse(todo, { status: 201 });
 }
