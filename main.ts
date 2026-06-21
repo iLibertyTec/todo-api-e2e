@@ -3,10 +3,24 @@ import { jsonError } from "./src/http_errors.ts";
 
 const counter = new VisitCounter();
 
+function methodNotAllowed(allow: string): Response {
+  const response = jsonError(
+    "method_not_allowed",
+    "Method not allowed",
+    405,
+  );
+  response.headers.set("allow", allow);
+  return response;
+}
+
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
+    if (req.method !== "GET") {
+      return methodNotAllowed("GET");
+    }
+
     return Response.json({
       ok: true,
       service: "ifactory-product",
@@ -14,25 +28,33 @@ export async function handler(req: Request): Promise<Response> {
     });
   }
 
-  if (url.pathname === "/api/visits" && req.method === "GET") {
-    return Response.json(counter.state);
-  }
+  if (url.pathname === "/api/visits") {
+    if (req.method === "GET") {
+      return Response.json(counter.state);
+    }
 
-  if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
-      : {};
-    const visitorId = typeof body.visitorId === "string"
-      ? body.visitorId
-      : undefined;
-    const state = counter.recordVisit(visitorId);
-    return Response.json({
-      ...state,
-      message: formatCounterMessage(state),
-    });
+    if (req.method === "POST") {
+      const body = req.headers.get("content-type")?.includes("json")
+        ? await req.json().catch(() => ({}))
+        : {};
+      const visitorId = typeof body.visitorId === "string"
+        ? body.visitorId
+        : undefined;
+      const state = counter.recordVisit(visitorId);
+      return Response.json({
+        ...state,
+        message: formatCounterMessage(state),
+      });
+    }
+
+    return methodNotAllowed("GET, POST");
   }
 
   if (url.pathname === "/") {
+    if (req.method !== "GET") {
+      return methodNotAllowed("GET");
+    }
+
     const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
