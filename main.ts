@@ -31,7 +31,8 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
+    const body: Record<string, unknown> = req.headers.get("content-type")
+        ?.includes("json")
       ? await req.json().catch((): Record<string, unknown> => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
