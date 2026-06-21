@@ -3,6 +3,7 @@ import {
   assertMatch,
   assertObjectMatch,
 } from "@std/assert";
+import { handler } from "../../main.ts";
 import { handleCreateTodo, handleListTodos } from "./todos.ts";
 import { MemoryTodoStore } from "../storage/memoryTodoStore.ts";
 
@@ -186,4 +187,44 @@ Deno.test("handleCreateTodo returns 405 when method is invalid", async () => {
     },
   });
   assertEquals(store.list(), []);
+});
+
+Deno.test("handler exposes GET /api/todos", async () => {
+  const response = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "GET",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { items: [] });
+});
+
+Deno.test("handler exposes POST /api/todos with shared in-memory store", async () => {
+  const createResponse = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ title: "Tarefa via HTTP" }),
+    }),
+  );
+
+  assertEquals(createResponse.status, 201);
+
+  const listResponse = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "GET",
+    }),
+  );
+  const listBody = await listResponse.json();
+
+  assertEquals(listResponse.status, 200);
+  assertEquals(Array.isArray(listBody.items), true);
+  assertEquals(listBody.items.length >= 1, true);
+  assertObjectMatch(listBody.items.at(-1), {
+    title: "Tarefa via HTTP",
+    completed: false,
+  });
 });
