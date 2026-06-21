@@ -1,6 +1,8 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { InMemoryTodoRepository } from "./src/todos.ts";
 
 const counter = new VisitCounter();
+const todoRepository = new InMemoryTodoRepository();
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -29,6 +31,10 @@ export async function handler(req: Request): Promise<Response> {
       ...state,
       message: formatCounterMessage(state),
     });
+  }
+
+  if (url.pathname === "/todos" && req.method === "GET") {
+    return Response.json(todoRepository.list());
   }
 
   if (url.pathname === "/") {
