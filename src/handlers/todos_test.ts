@@ -1,5 +1,6 @@
 import {
   assertEquals,
+  assertMatch,
   assertObjectMatch,
 } from "@std/assert";
 import { handleCreateTodo, handleListTodos } from "./todos.ts";
@@ -35,7 +36,12 @@ Deno.test("handleListTodos returns 405 when method is invalid", async () => {
     response.headers.get("content-type"),
     "application/json; charset=utf-8",
   );
-  assertEquals(await response.json(), { error: "method not allowed" });
+  assertEquals(await response.json(), {
+    error: {
+      code: "METHOD_NOT_ALLOWED",
+      message: "method not allowed",
+    },
+  });
 });
 
 Deno.test("handleCreateTodo returns 201 when payload is valid", async () => {
@@ -60,6 +66,8 @@ Deno.test("handleCreateTodo returns 201 when payload is valid", async () => {
     title: "Comprar leite",
     completed: false,
   });
+  assertMatch(body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  assertMatch(body.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
   assertEquals(store.list().length, 1);
 });
 
@@ -171,6 +179,11 @@ Deno.test("handleCreateTodo returns 405 when method is invalid", async () => {
     response.headers.get("content-type"),
     "application/json; charset=utf-8",
   );
-  assertEquals(await response.json(), { error: "method not allowed" });
+  assertEquals(await response.json(), {
+    error: {
+      code: "METHOD_NOT_ALLOWED",
+      message: "method not allowed",
+    },
+  });
   assertEquals(store.list(), []);
 });

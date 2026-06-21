@@ -9,10 +9,13 @@ export class MemoryTodoStore implements TodoStore {
   }
 
   create(input: CreateTodoInput): Todo {
+    const now: string = new Date().toISOString();
     const todo: Todo = {
       id: String(this.#nextId++),
       title: input.title,
       completed: false,
+      createdAt: now,
+      updatedAt: now,
     };
 
     this.#items.push(todo);

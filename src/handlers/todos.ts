@@ -1,5 +1,6 @@
 import type {
   CreateTodoInput,
+  Todo,
   TodoListResponse,
   TodoStore,
 } from "../types/todo.ts";
@@ -31,7 +32,12 @@ function badRequest(message: string): Response {
 
 function methodNotAllowed(allow: string): Response {
   return jsonResponse(
-    { error: "method not allowed" },
+    {
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "method not allowed",
+      },
+    },
     {
       status: 405,
       headers: {
@@ -67,13 +73,23 @@ function parseCreateTodoInput(body: unknown): CreateTodoInput | null {
   };
 }
 
+function serializeTodo(todo: Todo): Todo {
+  return {
+    id: todo.id,
+    title: todo.title,
+    completed: todo.completed,
+    createdAt: todo.createdAt,
+    updatedAt: todo.updatedAt,
+  };
+}
+
 export function handleListTodos(req: Request, store: TodoStore): Response {
   if (req.method !== "GET") {
     return methodNotAllowed("GET");
   }
 
   const response: TodoListResponse = {
-    items: store.list(),
+    items: store.list().map(serializeTodo),
   };
 
   return jsonResponse(response);
@@ -98,6 +114,6 @@ export async function handleCreateTodo(
     return badRequest("invalid payload");
   }
 
-  const todo = store.create(input);
-  return jsonResponse(todo, { status: 201 });
+  const todo: Todo = store.create(input);
+  return jsonResponse(serializeTodo(todo), { status: 201 });
 }
