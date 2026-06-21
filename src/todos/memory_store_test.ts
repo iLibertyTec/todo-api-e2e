@@ -2,10 +2,11 @@ import {
   assertEquals,
   assertNotEquals,
   assertStrictEquals,
+  assertThrows,
 } from "@std/assert";
 import { InMemoryTodoStore } from "./memory_store.ts";
 
-deno.test("InMemoryTodoStore cria e lista tarefas", (): void => {
+Deno.test("InMemoryTodoStore cria e lista tarefas", (): void => {
   const store = new InMemoryTodoStore({
     createId: () => "todo-1",
     now: () => "2024-01-01T00:00:00.000Z",
@@ -24,7 +25,32 @@ deno.test("InMemoryTodoStore cria e lista tarefas", (): void => {
   assertEquals(listed, [created]);
 });
 
-deno.test("InMemoryTodoStore busca tarefa por id", (): void => {
+Deno.test("InMemoryTodoStore lista múltiplas tarefas em ordem de criação", (): void => {
+  let idCounter = 0;
+  let nowCounter = 0;
+  const timestamps = [
+    "2024-01-01T00:00:00.000Z",
+    "2024-01-01T01:00:00.000Z",
+  ];
+  const store = new InMemoryTodoStore({
+    createId: () => {
+      idCounter += 1;
+      return `todo-${idCounter}`;
+    },
+    now: () => {
+      const timestamp = timestamps[nowCounter] ?? timestamps[timestamps.length - 1];
+      nowCounter += 1;
+      return timestamp;
+    },
+  });
+
+  const first = store.create({ title: "Primeira" });
+  const second = store.create({ title: "Segunda" });
+
+  assertEquals(store.list(), [first, second]);
+});
+
+Deno.test("InMemoryTodoStore busca tarefa por id", (): void => {
   const store = new InMemoryTodoStore({
     createId: () => "todo-1",
     now: () => "2024-01-01T00:00:00.000Z",
@@ -45,7 +71,7 @@ deno.test("InMemoryTodoStore busca tarefa por id", (): void => {
   assertStrictEquals(missing, undefined);
 });
 
-deno.test("InMemoryTodoStore atualiza title e completed de tarefa existente", (): void => {
+Deno.test("InMemoryTodoStore atualiza title e completed de tarefa existente", (): void => {
   let nowCall = 0;
   const store = new InMemoryTodoStore({
     createId: () => "todo-1",
@@ -72,7 +98,31 @@ deno.test("InMemoryTodoStore atualiza title e completed de tarefa existente", ()
   });
 });
 
-deno.test("InMemoryTodoStore retorna undefined ao atualizar id inexistente", (): void => {
+Deno.test("InMemoryTodoStore atualiza parcialmente sem sobrescrever campos ausentes", (): void => {
+  let nowCall = 0;
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => {
+      nowCall += 1;
+      return nowCall === 1
+        ? "2024-01-01T00:00:00.000Z"
+        : "2024-01-01T01:00:00.000Z";
+    },
+  });
+
+  store.create({ title: "Título inicial" });
+  const updated = store.update("todo-1", { completed: true });
+
+  assertEquals(updated, {
+    id: "todo-1",
+    title: "Título inicial",
+    completed: true,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T01:00:00.000Z",
+  });
+});
+
+Deno.test("InMemoryTodoStore retorna undefined ao atualizar id inexistente", (): void => {
   const store = new InMemoryTodoStore();
 
   const updated = store.update("todo-inexistente", { completed: true });
@@ -80,7 +130,36 @@ deno.test("InMemoryTodoStore retorna undefined ao atualizar id inexistente", ():
   assertStrictEquals(updated, undefined);
 });
 
-deno.test("InMemoryTodoStore retorna cópias defensivas", (): void => {
+Deno.test("InMemoryTodoStore aplica validação de domínio na criação", (): void => {
+  const store = new InMemoryTodoStore();
+
+  assertThrows(
+    (): void => {
+      store.create({ title: "   " });
+    },
+    Error,
+    "title must not be empty",
+  );
+});
+
+Deno.test("InMemoryTodoStore aplica validação de domínio na atualização", (): void => {
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => "2024-01-01T00:00:00.000Z",
+  });
+
+  store.create({ title: "Original" });
+
+  assertThrows(
+    (): void => {
+      store.update("todo-1", {});
+    },
+    Error,
+    "update must include at least one field",
+  );
+});
+
+Deno.test("InMemoryTodoStore retorna cópias defensivas", (): void => {
   const store = new InMemoryTodoStore({
     createId: () => "todo-1",
     now: () => "2024-01-01T00:00:00.000Z",
@@ -95,4 +174,30 @@ deno.test("InMemoryTodoStore retorna cópias defensivas", (): void => {
   assertNotEquals(created.title, fetched?.title);
   assertEquals(fetched?.title, "Original");
   assertEquals(listed[0]?.title, "Original");
+});
+
+Deno.test("InMemoryTodoStore retorna cópia defensiva em update", (): void => {
+  let nowCall = 0;
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => {
+      nowCall += 1;
+      return nowCall === 1
+        ? "2024-01-01T00:00:00.000Z"
+        : "2024-01-01T01:00:00.000Z";
+    },
+  });
+
+  store.create({ title: "Original" });
+  const updated = store.update("todo-1", { title: "Atualizado" });
+
+  if (updated === undefined) {
+    throw new Error("expected updated todo");
+  }
+
+  updated.title = "Mutado fora do store";
+  const fetched = store.getById("todo-1");
+
+  assertEquals(fetched?.title, "Atualizado");
+  assertNotEquals(updated.title, fetched?.title);
 });

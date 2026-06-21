@@ -1,4 +1,8 @@
 import type { CreateTodoInput, Todo, UpdateTodoInput } from "./types.ts";
+import {
+  validateCreateTodoInput,
+  validateUpdateTodoInput,
+} from "./validation.ts";
 
 export interface TodoStore {
   create(input: CreateTodoInput): Todo;
@@ -24,10 +28,11 @@ export class InMemoryTodoStore implements TodoStore {
   }
 
   create(input: CreateTodoInput): Todo {
+    const validatedInput = validateCreateTodoInput(input);
     const timestamp = this.#now();
     const todo: Todo = {
       id: this.#createId(),
-      title: input.title,
+      title: validatedInput.title,
       completed: false,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -59,10 +64,15 @@ export class InMemoryTodoStore implements TodoStore {
       return undefined;
     }
 
+    const validatedInput = validateUpdateTodoInput(input);
     const next: Todo = {
       ...current,
-      ...(input.title !== undefined ? { title: input.title } : {}),
-      ...(input.completed !== undefined ? { completed: input.completed } : {}),
+      ...(validatedInput.title !== undefined
+        ? { title: validatedInput.title }
+        : {}),
+      ...(validatedInput.completed !== undefined
+        ? { completed: validatedInput.completed }
+        : {}),
       updatedAt: this.#now(),
     };
 
