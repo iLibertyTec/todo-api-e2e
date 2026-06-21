@@ -2,12 +2,25 @@ import { jsonError } from "./http_errors.ts";
 
 export type JsonObject = Record<string, unknown>;
 
+type ReadJsonObjectResult =
+  | { ok: true; value: JsonObject }
+  | { ok: false; response: Response };
+
+const MAX_BODY_BYTES: number = 1024 * 1024;
+
+function isSupportedJsonContentType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const [mediaType] = contentType.split(";", 1);
+  return mediaType.trim().toLowerCase() === "application/json";
+}
+
 export async function readJsonObject(
   req: Request,
-): Promise<{ ok: true; value: JsonObject } | { ok: false; response: Response }> {
-  const contentType: string | null = req.headers.get("content-type");
-
-  if (!contentType?.includes("json")) {
+): Promise<ReadJsonObjectResult> {
+  if (!isSupportedJsonContentType(req.headers.get("content-type"))) {
     return {
       ok: false,
       response: jsonError(
@@ -27,6 +40,13 @@ export async function readJsonObject(
     };
   }
 
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+    return {
+      ok: false,
+      response: jsonError("invalid_payload", "Request body is too large", 400),
+    };
+  }
+
   let parsed: unknown;
 
   try {
@@ -34,7 +54,11 @@ export async function readJsonObject(
   } catch {
     return {
       ok: false,
-      response: jsonError("invalid_payload", "Request body must be valid JSON", 400),
+      response: jsonError(
+        "invalid_payload",
+        "Request body must be valid JSON",
+        400,
+      ),
     };
   }
 
