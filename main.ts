@@ -1,11 +1,18 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
 import { healthHandler, methodNotAllowed } from "./src/handlers/healthHandler.ts";
+import {
+  createTodoCollectionHandlers,
+  methodNotAllowedJson,
+} from "./src/handlers/todoHandlers.ts";
+import { MemoryTodoStore } from "./src/todos/memoryTodoStore.ts";
 
 interface RecordVisitRequestBody {
   visitorId?: string;
 }
 
 const counter = new VisitCounter();
+const todoStore = new MemoryTodoStore();
+const todoHandlers = createTodoCollectionHandlers(todoStore);
 
 function parseRecordVisitRequestBody(value: unknown): RecordVisitRequestBody {
   if (typeof value !== "object" || value === null) {
@@ -28,6 +35,18 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     return methodNotAllowed(["GET", "HEAD"]);
+  }
+
+  if (url.pathname === "/api/todos") {
+    if (req.method === "GET") {
+      return todoHandlers.getTodos();
+    }
+
+    if (req.method === "POST") {
+      return await todoHandlers.createTodo(req);
+    }
+
+    return methodNotAllowedJson(["GET", "POST"]);
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
