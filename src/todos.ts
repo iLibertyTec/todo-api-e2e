@@ -76,9 +76,9 @@ export class InMemoryTodoRepository {
     validateTodoPatch(patch);
 
     const updated: Todo = {
-      ...current,
-      ...patch,
       id: current.id,
+      title: patch.title ?? current.title,
+      completed: patch.completed ?? current.completed,
     };
 
     this.#todos.set(id, updated);

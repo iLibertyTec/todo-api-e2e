@@ -59,7 +59,8 @@ denoTest("GET /todos/:id returns 404 when todo does not exist", async (): Promis
 
   assertEquals(response.status, 404);
   assert(
-    response.headers.get("content-type")?.includes("application/json") ?? false,
+    response.headers.get("content-type")?.includes("application/json") ??
+      false,
   );
   assertEquals(await response.json(), { error: "not found" });
 });
@@ -138,7 +139,7 @@ denoTest("PATCH /todos/:id updates only completed", async (): Promise<void> => {
   });
 });
 
-denoTest("PATCH /todos/:id updates title and completed and ignores id", async (): Promise<void> => {
+denoTest("PATCH /todos/:id updates title and completed", async (): Promise<void> => {
   resetTodos();
   const todo = seedTodo("Original");
 
@@ -147,7 +148,6 @@ denoTest("PATCH /todos/:id updates title and completed and ignores id", async ()
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        id: "outro-id",
         title: "Atualizada",
         completed: true,
       }),
@@ -209,6 +209,71 @@ denoTest("PATCH /todos/:id returns 400 for invalid payload", async (): Promise<v
   assertEquals(await response.json(), { error: "invalid payload" });
 });
 
+denoTest("PATCH /todos/:id returns 400 for empty payload", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Teste vazio");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid payload" });
+});
+
+denoTest("PATCH /todos/:id returns 400 for extra fields including id", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Teste extras");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "outro-id",
+        title: "Atualizada",
+      }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid payload" });
+});
+
+denoTest("PATCH /todos/:id does not match extra path segments", async (): Promise<void> => {
+  resetTodos();
+  const response = await handler(
+    new Request("http://localhost/todos/abc/extra", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Atualizada" }),
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assertEquals(await response.json(), { error: "not found" });
+});
+
+denoTest("PATCH /todos/:id returns 400 for empty title", async (): Promise<void> => {
+  resetTodos();
+  const todo = seedTodo("Teste título");
+
+  const response = await handler(
+    new Request(`http://localhost/todos/${todo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "   " }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid payload" });
+});
+
 denoTest("GET / returns html page", async (): Promise<void> => {
   const response = await handler(new Request("http://localhost/"));
 
@@ -216,18 +281,16 @@ denoTest("GET / returns html page", async (): Promise<void> => {
   assert(
     response.headers.get("content-type")?.includes("text/html") ?? false,
   );
-});
-
-denoTest("unknown route returns 404", async (): Promise<void> => {
-  const response = await handler(new Request("http://localhost/missing"));
-
-  assertEquals(response.status, 404);
-  assertEquals(await response.json(), { error: "not found" });
+  const body = await response.text();
+  assertMatch(body, /Visit Analytics/);
 });
 
 function denoTest(
   name: string,
-  fn: () => Promise<void> | void,
+  fn: () => void | Promise<void>,
 ): void {
-  Deno.test(name, fn);
+  Deno.test(name, async () => {
+    resetTodos();
+    await fn();
+  });
 }

@@ -36,16 +36,23 @@ function isTodoPatchPayload(value: unknown): value is TodoPatch {
   }
 
   const patch = value as Record<string, unknown>;
+  const keys = Object.keys(patch);
 
-  if ("title" in patch && patch.title !== undefined && typeof patch.title !== "string") {
+  if (keys.length === 0) {
     return false;
   }
 
-  if (
-    "completed" in patch &&
-    patch.completed !== undefined &&
-    typeof patch.completed !== "boolean"
-  ) {
+  for (const key of keys) {
+    if (key !== "title" && key !== "completed") {
+      return false;
+    }
+  }
+
+  if ("title" in patch && typeof patch.title !== "string") {
+    return false;
+  }
+
+  if ("completed" in patch && typeof patch.completed !== "boolean") {
     return false;
   }
 
@@ -112,21 +119,13 @@ export async function handler(req: Request): Promise<Response> {
       return Response.json({ error: "invalid payload" }, { status: 400 });
     }
 
-    try {
-      const todo = todoRepository.patch(todoId, body);
+    const todo = todoRepository.patch(todoId, body);
 
-      if (todo === null) {
-        return Response.json({ error: "not found" }, { status: 404 });
-      }
-
-      return Response.json(todo);
-    } catch (error) {
-      if (error instanceof Error) {
-        return Response.json({ error: error.message }, { status: 400 });
-      }
-
-      throw error;
+    if (todo === null) {
+      return Response.json({ error: "not found" }, { status: 404 });
     }
+
+    return Response.json(todo);
   }
 
   if (url.pathname === "/") {
