@@ -2,10 +2,22 @@ import { formatCounterMessage, VisitCounter } from "./counter.ts";
 import { healthHandler, methodNotAllowed } from "./src/handlers/healthHandler.ts";
 
 interface RecordVisitRequestBody {
-  visitorId?: unknown;
+  visitorId?: string;
 }
 
 const counter = new VisitCounter();
+
+function parseRecordVisitRequestBody(value: unknown): RecordVisitRequestBody {
+  if (typeof value !== "object" || value === null) {
+    return {};
+  }
+
+  const visitorId = "visitorId" in value && typeof value.visitorId === "string"
+    ? value.visitorId
+    : undefined;
+
+  return { visitorId };
+}
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -23,14 +35,11 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body: RecordVisitRequestBody = req.headers.get("content-type")
-        ?.includes("json")
-      ? await req.json().catch((): RecordVisitRequestBody => ({}))
+    const rawBody: unknown = req.headers.get("content-type")?.includes("json")
+      ? await req.json().catch((): unknown => ({}))
       : {};
-    const visitorId = typeof body.visitorId === "string"
-      ? body.visitorId
-      : undefined;
-    const state = counter.recordVisit(visitorId);
+    const body = parseRecordVisitRequestBody(rawBody);
+    const state = counter.recordVisit(body.visitorId);
     return Response.json({
       ...state,
       message: formatCounterMessage(state),

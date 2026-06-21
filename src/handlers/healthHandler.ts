@@ -1,14 +1,16 @@
 import { appInfo } from "../config/appInfo.ts";
 
+export type HttpMethod = "GET" | "POST";
+
 export interface HealthResponseBody {
   ok: true;
-  service: typeof appInfo.service;
-  version: typeof appInfo.version;
+  service: string;
+  version: string;
 }
 
 export interface MethodNotAllowedBody {
   error: "method not allowed";
-  allowed: string[];
+  allowed: HttpMethod[];
 }
 
 export function healthHandler(): Response {
@@ -26,7 +28,7 @@ export function healthHandler(): Response {
   });
 }
 
-export function methodNotAllowed(allowed: string[]): Response {
+export function methodNotAllowed(allowed: HttpMethod[]): Response {
   const body: MethodNotAllowedBody = {
     error: "method not allowed",
     allowed,

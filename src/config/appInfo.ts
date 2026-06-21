@@ -1,9 +1,9 @@
-export const APP_SERVICE_NAME = "ifactory-product" as const;
-export const APP_VERSION = "0.1.0" as const;
+export const APP_SERVICE_NAME = "Todo API";
+export const APP_VERSION = "0.1.0";
 
 export interface AppInfo {
-  service: typeof APP_SERVICE_NAME;
-  version: typeof APP_VERSION;
+  service: string;
+  version: string;
 }
 
 export const appInfo: AppInfo = {
