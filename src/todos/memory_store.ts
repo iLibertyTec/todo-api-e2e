@@ -5,10 +5,10 @@ import {
 } from "./validation.ts";
 
 export interface TodoStore {
-  create(input: CreateTodoInput): Todo;
-  list(): Todo[];
-  getById(id: string): Todo | undefined;
-  update(id: string, input: UpdateTodoInput): Todo | undefined;
+  create(input: CreateTodoInput): Readonly<Todo>;
+  list(): ReadonlyArray<Readonly<Todo>>;
+  getById(id: string): Readonly<Todo> | undefined;
+  update(id: string, input: UpdateTodoInput): Readonly<Todo> | undefined;
 }
 
 export interface TodoStoreDependencies {
@@ -16,26 +16,22 @@ export interface TodoStoreDependencies {
   now?: () => string;
 }
 
-function cloneTodo(todo: Todo): Todo {
-  return { ...todo };
-}
-
-function freezeTodo(todo: Todo): Todo {
+function freezeTodo(todo: Todo): Readonly<Todo> {
   return Object.freeze({ ...todo });
 }
 
 export class InMemoryTodoStore implements TodoStore {
-  readonly #todos: Map<string, Todo>;
+  readonly #todos: Map<string, Readonly<Todo>>;
   readonly #createId: () => string;
   readonly #now: () => string;
 
   constructor(dependencies: TodoStoreDependencies = {}) {
-    this.#todos = new Map<string, Todo>();
+    this.#todos = new Map<string, Readonly<Todo>>();
     this.#createId = dependencies.createId ?? (() => crypto.randomUUID());
     this.#now = dependencies.now ?? (() => new Date().toISOString());
   }
 
-  create(input: CreateTodoInput): Todo {
+  create(input: CreateTodoInput): Readonly<Todo> {
     const validatedInput = validateCreateTodoInput(input);
     const timestamp = this.#now();
     const todo = freezeTodo({
@@ -48,24 +44,24 @@ export class InMemoryTodoStore implements TodoStore {
 
     this.#todos.set(todo.id, todo);
 
-    return cloneTodo(todo);
+    return freezeTodo(todo);
   }
 
-  list(): Todo[] {
-    return Array.from(this.#todos.values(), cloneTodo);
+  list(): ReadonlyArray<Readonly<Todo>> {
+    return this.#todos.values().map((todo: Readonly<Todo>): Readonly<Todo> => freezeTodo(todo)).toArray();
   }
 
-  getById(id: string): Todo | undefined {
+  getById(id: string): Readonly<Todo> | undefined {
     const todo = this.#todos.get(id);
 
     if (todo === undefined) {
       return undefined;
     }
 
-    return cloneTodo(todo);
+    return freezeTodo(todo);
   }
 
-  update(id: string, input: UpdateTodoInput): Todo | undefined {
+  update(id: string, input: UpdateTodoInput): Readonly<Todo> | undefined {
     const current = this.#todos.get(id);
 
     if (current === undefined) {
@@ -86,6 +82,6 @@ export class InMemoryTodoStore implements TodoStore {
 
     this.#todos.set(id, next);
 
-    return cloneTodo(next);
+    return freezeTodo(next);
   }
 }

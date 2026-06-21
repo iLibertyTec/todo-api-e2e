@@ -1,6 +1,6 @@
 import {
   assertEquals,
-  assertNotEquals,
+  assertObjectMatch,
   assertStrictEquals,
   assertThrows,
 } from "@std/assert";
@@ -49,7 +49,8 @@ Deno.test("InMemoryTodoStore lista múltiplas tarefas em ordem de criação", ()
       return `todo-${idCounter}`;
     },
     now: () => {
-      const timestamp = timestamps[nowCounter] ?? timestamps[timestamps.length - 1];
+      const timestamp = timestamps[nowCounter] ??
+        timestamps[timestamps.length - 1];
       nowCounter += 1;
       return timestamp;
     },
@@ -151,6 +152,45 @@ Deno.test("InMemoryTodoStore normaliza título ao atualizar", (): void => {
   assertEquals(updated?.title, "Título final");
 });
 
+Deno.test("InMemoryTodoStore retorna snapshots defensivos imutáveis", (): void => {
+  let nowCall = 0;
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => {
+      nowCall += 1;
+      return nowCall === 1
+        ? "2024-01-01T00:00:00.000Z"
+        : "2024-01-01T01:00:00.000Z";
+    },
+  });
+
+  const created = store.create({ title: "Original" });
+
+  assertThrows(
+    (): void => {
+      (created as { title: string }).title = "Mutado";
+    },
+    TypeError,
+  );
+
+  const listedBeforeUpdate = store.list()[0];
+  assertThrows(
+    (): void => {
+      (listedBeforeUpdate as { completed: boolean }).completed = true;
+    },
+    TypeError,
+  );
+
+  store.update("todo-1", { completed: true });
+
+  const found = store.getById("todo-1");
+  assertObjectMatch(found, {
+    id: "todo-1",
+    title: "Original",
+    completed: true,
+  });
+});
+
 Deno.test("InMemoryTodoStore retorna undefined ao atualizar id inexistente", (): void => {
   const store = new InMemoryTodoStore();
 
@@ -247,48 +287,4 @@ Deno.test("InMemoryTodoStore rejeita tipos inválidos na atualização", (): voi
     Error,
     "completed must be a boolean",
   );
-});
-
-Deno.test("InMemoryTodoStore retorna cópias defensivas", (): void => {
-  const store = new InMemoryTodoStore({
-    createId: () => "todo-1",
-    now: () => "2024-01-01T00:00:00.000Z",
-  });
-
-  const created = store.create({ title: "Original" });
-  created.title = "Mutado fora do store";
-
-  const fetched = store.getById("todo-1");
-  const listed = store.list();
-
-  assertNotEquals(created.title, fetched?.title);
-  assertEquals(fetched?.title, "Original");
-  assertEquals(listed[0]?.title, "Original");
-});
-
-Deno.test("InMemoryTodoStore mantém estado interno após mutação da lista retornada", (): void => {
-  const store = new InMemoryTodoStore({
-    createId: () => "todo-1",
-    now: () => "2024-01-01T00:00:00.000Z",
-  });
-
-  store.create({ title: "Original" });
-  const listed = store.list();
-
-  listed[0]!.title = "Mutado fora do store";
-  listed.push({
-    id: "todo-2",
-    title: "Inserido fora do store",
-    completed: false,
-    createdAt: "2024-01-01T00:00:00.000Z",
-    updatedAt: "2024-01-01T00:00:00.000Z",
-  });
-
-  assertEquals(store.list(), [{
-    id: "todo-1",
-    title: "Original",
-    completed: false,
-    createdAt: "2024-01-01T00:00:00.000Z",
-    updatedAt: "2024-01-01T00:00:00.000Z",
-  }]);
 });
