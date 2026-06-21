@@ -1,6 +1,7 @@
 import {
   assertEquals,
   assertMatch,
+  assertNotSame,
   assertThrows,
 } from "@std/assert";
 import { MemoryTodoStore } from "./memoryTodoStore.ts";
@@ -44,4 +45,20 @@ Deno.test("MemoryTodoStore não compartilha estado entre instâncias", (): void 
 
   assertEquals(storeA.list().length, 1);
   assertEquals(storeB.list(), []);
+});
+
+Deno.test("MemoryTodoStore list retorna cópias defensivas em ordem de criação", (): void => {
+  const store = new MemoryTodoStore();
+
+  const first = store.create({ title: "Primeira" });
+  const second = store.create({ title: "Segunda" });
+  const listed = store.list();
+
+  assertEquals(listed, [first, second]);
+  assertNotSame(listed[0], first);
+  assertNotSame(listed[1], second);
+
+  listed[0].title = "Alterada externamente";
+
+  assertEquals(store.list(), [first, second]);
 });
