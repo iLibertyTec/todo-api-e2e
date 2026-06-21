@@ -46,6 +46,15 @@ export async function handler(req: Request): Promise<Response> {
       return await todoHandlers.createTodo(req);
     }
 
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          Allow: "GET, POST",
+        },
+      });
+    }
+
     return methodNotAllowedJson(["GET", "POST"]);
   }
 

@@ -77,7 +77,8 @@ Deno.test("createTodo returns 400 when title is missing", async (): Promise<void
   const response = await handlers.createTodo(request);
 
   assertEquals(response.status, 400);
-  assertEquals(await response.json(), { error: "title is required" });
+  assertEquals(response.headers.get("content-type"), "application/json");
+  assertEquals(await response.json(), { error: "invalid payload" });
 });
 
 Deno.test("createTodo returns 400 when title is empty", async (): Promise<void> => {
@@ -92,13 +93,15 @@ Deno.test("createTodo returns 400 when title is empty", async (): Promise<void> 
   const response = await handlers.createTodo(request);
 
   assertEquals(response.status, 400);
+  assertEquals(response.headers.get("content-type"), "application/json");
   assertEquals(await response.json(), { error: "title must not be empty" });
 });
 
-Deno.test("methodNotAllowedJson returns 405 with allow header", async (): Promise<void> => {
+Deno.test("methodNotAllowedJson returns 405 with Allow header", async (): Promise<void> => {
   const response = methodNotAllowedJson(["GET", "POST"]);
 
   assertEquals(response.status, 405);
-  assertEquals(response.headers.get("allow"), "GET, POST");
+  assertEquals(response.headers.get("Allow"), "GET, POST");
+  assertEquals(response.headers.get("content-type"), "application/json");
   assertEquals(await response.json(), { error: "method not allowed" });
 });

@@ -9,6 +9,11 @@ export interface UpdateTodoInput {
   completed?: boolean;
 }
 
+export interface TodoCollectionStore {
+  list(): Todo[];
+  create(input: CreateTodoInput): Todo;
+}
+
 function normalizeTitle(title: string): string {
   const normalized: string = title.trim();
 
@@ -19,7 +24,7 @@ function normalizeTitle(title: string): string {
   return normalized;
 }
 
-export class MemoryTodoStore {
+export class MemoryTodoStore implements TodoCollectionStore {
   #todos: Todo[] = [];
   #nextId: number = 1;
 

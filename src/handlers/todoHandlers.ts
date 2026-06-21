@@ -1,7 +1,4 @@
-import {
-  MemoryTodoStore,
-  type CreateTodoInput,
-} from "../todos/memoryTodoStore.ts";
+import type { CreateTodoInput, TodoCollectionStore } from "../todos/memoryTodoStore.ts";
 import type { Todo } from "../todos/types.ts";
 
 interface CreateTodoRequestBody {
@@ -14,7 +11,12 @@ export interface TodoCollectionHandlers {
 }
 
 function jsonError(message: string, status: number): Response {
-  return Response.json({ error: message }, { status });
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: {
+      "content-type": "application/json",
+    },
+  });
 }
 
 function parseCreateTodoRequestBody(value: unknown): CreateTodoRequestBody {
@@ -30,19 +32,17 @@ function parseCreateTodoRequestBody(value: unknown): CreateTodoRequestBody {
 }
 
 export function methodNotAllowedJson(allowedMethods: string[]): Response {
-  return Response.json(
-    { error: "method not allowed" },
-    {
-      status: 405,
-      headers: {
-        allow: allowedMethods.join(", "),
-      },
+  return new Response(JSON.stringify({ error: "method not allowed" }), {
+    status: 405,
+    headers: {
+      Allow: allowedMethods.join(", "),
+      "content-type": "application/json",
     },
-  );
+  });
 }
 
 export function createTodoCollectionHandlers(
-  store: MemoryTodoStore,
+  store: TodoCollectionStore,
 ): TodoCollectionHandlers {
   return {
     getTodos(): Response {
@@ -62,7 +62,7 @@ export function createTodoCollectionHandlers(
       const body: CreateTodoRequestBody = parseCreateTodoRequestBody(rawBody);
 
       if (body.title === undefined) {
-        return jsonError("title is required", 400);
+        return jsonError("invalid payload", 400);
       }
 
       try {
