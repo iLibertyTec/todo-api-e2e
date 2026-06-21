@@ -10,7 +10,7 @@ export class MemoryTodoStore {
 
   constructor(initialTodos: Todo[] = []) {
     this.#todos = initialTodos.map((todo: Todo): Todo => cloneTodo(todo));
-    this.#nextId = initialTodos.length + 1;
+    this.#nextId = getNextId(this.#todos);
   }
 
   list(): Todo[] {
@@ -77,4 +77,18 @@ function cloneTodo(todo: Todo): Todo {
     createdAt: todo.createdAt,
     updatedAt: todo.updatedAt,
   };
+}
+
+function getNextId(todos: Todo[]): number {
+  let maxId = 0;
+
+  for (const todo of todos) {
+    const numericId = Number(todo.id);
+
+    if (Number.isInteger(numericId) && numericId > maxId) {
+      maxId = numericId;
+    }
+  }
+
+  return maxId + 1;
 }

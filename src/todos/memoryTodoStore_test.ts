@@ -101,3 +101,27 @@ Deno.test("MemoryTodoStore returns defensive copies", (): void => {
 
   assertEquals(fetched?.title, "Seed");
 });
+
+Deno.test("MemoryTodoStore creates next id from highest numeric seeded id", (): void => {
+  const store = new MemoryTodoStore([
+    {
+      id: "5",
+      title: "Cinco",
+      completed: false,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    },
+    {
+      id: "9",
+      title: "Nove",
+      completed: true,
+      createdAt: "2024-01-02T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    },
+  ]);
+
+  const created = store.create({ title: "Nova" });
+
+  assertEquals(created.id, "10");
+  assertEquals(store.list().map((todo: Todo): string => todo.id), ["5", "9", "10"]);
+});
