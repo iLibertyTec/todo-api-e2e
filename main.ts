@@ -7,7 +7,7 @@ const counter = new VisitCounter();
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
-  if (url.pathname === "/health" && req.method === "GET") {
+  if (url.pathname === "/health") {
     return handleHealth(req);
   }
 
