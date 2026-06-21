@@ -1,8 +1,30 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { InMemoryTodoRepository } from "./src/todos.ts";
+import { InMemoryTodoRepository, type Todo } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 const todoRepository = new InMemoryTodoRepository();
+
+export function seedTodo(title: string): Todo {
+  return todoRepository.create(title);
+}
+
+export function resetTodos(): void {
+  todoRepository.clear();
+}
+
+function getTodoIdFromPath(pathname: string): string | null {
+  const match = /^\/todos\/([^/]+)$/.exec(pathname);
+
+  if (match === null) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -35,6 +57,18 @@ export async function handler(req: Request): Promise<Response> {
 
   if (url.pathname === "/todos" && req.method === "GET") {
     return Response.json(todoRepository.list());
+  }
+
+  const todoId = req.method === "GET" ? getTodoIdFromPath(url.pathname) : null;
+
+  if (todoId !== null) {
+    const todo = todoRepository.getById(todoId);
+
+    if (todo === null) {
+      return Response.json({ error: "not found" }, { status: 404 });
+    }
+
+    return Response.json(todo);
   }
 
   if (url.pathname === "/") {
