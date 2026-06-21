@@ -91,4 +91,138 @@ describe("handler", () => {
     assertEquals(response.status, 404);
     assertEquals(await response.json(), { error: "todo not found" });
   });
+
+  Deno.test("PATCH /todos/:id updates only title and preserves completed", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Título atualizado" }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      id: "1",
+      title: "Título atualizado",
+      completed: false,
+    });
+    assertEquals(todos.getById("1"), {
+      id: "1",
+      title: "Título atualizado",
+      completed: false,
+    });
+  });
+
+  Deno.test("PATCH /todos/:id updates only completed and preserves title", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ completed: true }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      id: "1",
+      title: "Primeira tarefa",
+      completed: true,
+    });
+    assertEquals(todos.getById("1"), {
+      id: "1",
+      title: "Primeira tarefa",
+      completed: true,
+    });
+  });
+
+  Deno.test("PATCH /todos/:id updates both editable fields", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "Nova tarefa",
+          completed: true,
+        }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      id: "1",
+      title: "Nova tarefa",
+      completed: true,
+    });
+  });
+
+  Deno.test("PATCH /todos/:id returns 404 when id does not exist", async () => {
+    const todos = new TodoStore();
+    const response = await handler(
+      new Request("http://localhost/todos/inexistente", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Novo título" }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 404);
+    assertEquals(await response.json(), { error: "todo not found" });
+  });
+
+  Deno.test("PATCH /todos/:id returns 400 when payload has no editable fields", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "2" }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 400);
+    assertEquals(await response.json(), {
+      error: "no editable fields provided",
+    });
+    assertEquals(todos.getById("1"), seededTodos[0]);
+  });
+
+  Deno.test("PATCH /todos/:id returns 400 when payload is invalid", async () => {
+    const seededTodos: Todo[] = [
+      { id: "1", title: "Primeira tarefa", completed: false },
+    ];
+    const todos = new TodoStore(seededTodos);
+    const response = await handler(
+      new Request("http://localhost/todos/1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ completed: "sim" }),
+      }),
+      { todos },
+    );
+
+    assertEquals(response.status, 400);
+    assertEquals(await response.json(), { error: "invalid completed" });
+    assertEquals(todos.getById("1"), seededTodos[0]);
+  });
 });
