@@ -98,6 +98,17 @@ export async function handler(
     return Response.json(updated);
   }
 
+  if (url.pathname.startsWith("/todos/") && req.method === "DELETE") {
+    const id = url.pathname.slice("/todos/".length);
+    const deleted = deps.todos.delete(id);
+
+    if (!deleted) {
+      return Response.json({ error: "todo not found" }, { status: 404 });
+    }
+
+    return new Response(null, { status: 204 });
+  }
+
   if (url.pathname === "/api/visits" && req.method === "GET") {
     return Response.json(counter.state);
   }
