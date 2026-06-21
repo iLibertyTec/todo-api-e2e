@@ -1,7 +1,23 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { listTodos } from "./src/todos.ts";
+import { createTodo, listTodos } from "./src/todos.ts";
 
 const counter = new VisitCounter();
+const MAX_TODO_TITLE_LENGTH = 256;
+
+function isJsonContentType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const [mediaType] = contentType.split(";", 1);
+  const normalizedMediaType = mediaType.trim().toLowerCase();
+
+  return normalizedMediaType === "application/json";
+}
+
+function jsonError(message: string, status = 400): Response {
+  return Response.json({ error: message }, { status });
+}
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -16,6 +32,55 @@ export async function handler(req: Request): Promise<Response> {
 
   if (url.pathname === "/todos" && req.method === "GET") {
     return Response.json(listTodos());
+  }
+
+  if (url.pathname === "/todos" && req.method === "POST") {
+    if (!isJsonContentType(req.headers.get("content-type"))) {
+      return jsonError("content-type must be application/json");
+    }
+
+    const rawBody: string = await req.text();
+    if (rawBody.trim().length === 0) {
+      return jsonError("request body is required");
+    }
+
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return jsonError("request body must be valid JSON");
+    }
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("title" in body) ||
+      typeof body.title !== "string"
+    ) {
+      return jsonError("title is required");
+    }
+
+    const title: string = body.title.trim();
+    if (title.length === 0) {
+      return jsonError("title is required");
+    }
+
+    if (title.length > MAX_TODO_TITLE_LENGTH) {
+      return jsonError("title is too long");
+    }
+
+    const todo = createTodo(title);
+    return Response.json(todo, { status: 201 });
+  }
+
+  if (url.pathname === "/todos") {
+    return new Response(JSON.stringify({ error: "method not allowed" }), {
+      status: 405,
+      headers: {
+        "Allow": "GET, POST",
+        "content-type": "application/json; charset=utf-8",
+      },
+    });
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {

@@ -5,23 +5,24 @@ export interface Todo {
   createdAt: string;
 }
 
-export class TodoStore {
-  #todos: Todo[] = [];
+const todos: Todo[] = [];
 
-  list(): Todo[] {
-    return this.#todos.map((todo: Todo) => ({ ...todo }));
-  }
+export function createTodo(title: string): Todo {
+  const todo: Todo = {
+    id: crypto.randomUUID(),
+    title,
+    completed: false,
+    createdAt: new Date().toISOString(),
+  };
 
-  create(title: string): Todo {
-    const todo: Todo = {
-      id: crypto.randomUUID(),
-      title,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
+  todos.push(todo);
+  return todo;
+}
 
-    this.#todos.push(todo);
+export function listTodos(): Todo[] {
+  return [...todos];
+}
 
-    return { ...todo };
-  }
+export function resetTodos(): void {
+  todos.length = 0;
 }
