@@ -8,7 +8,19 @@ export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return handleHealth(req);
+    if (req.method !== "GET") {
+      return Response.json(
+        { error: "method not allowed" },
+        {
+          status: 405,
+          headers: {
+            allow: "GET",
+          },
+        },
+      );
+    }
+
+    return handleHealth();
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
