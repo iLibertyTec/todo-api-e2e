@@ -208,14 +208,14 @@ denoTest("PATCH /todos/:id returns 400 for malformed json", async (): Promise<vo
   assertEquals(await response.json(), { error: "invalid json" });
 });
 
-denoTest("PATCH /todos/:id returns 400 for invalid payload", async (): Promise<void> => {
-  const todo = seedTodo("Teste payload");
+denoTest("PATCH /todos/:id returns 400 for empty title", async (): Promise<void> => {
+  const todo = seedTodo("Teste título");
 
   const response = await handler(
     new Request(`http://localhost/todos/${todo.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ completed: "sim" }),
+      body: JSON.stringify({ title: "   " }),
     }),
   );
 
@@ -224,7 +224,7 @@ denoTest("PATCH /todos/:id returns 400 for invalid payload", async (): Promise<v
 });
 
 denoTest("PATCH /todos/:id returns 400 for empty payload", async (): Promise<void> => {
-  const todo = seedTodo("Teste vazio");
+  const todo = seedTodo("Teste payload vazio");
 
   const response = await handler(
     new Request(`http://localhost/todos/${todo.id}`, {
@@ -238,14 +238,14 @@ denoTest("PATCH /todos/:id returns 400 for empty payload", async (): Promise<voi
   assertEquals(await response.json(), { error: "invalid payload" });
 });
 
-denoTest("PATCH /todos/:id returns 400 for empty title", async (): Promise<void> => {
-  const todo = seedTodo("Teste título");
+denoTest("PATCH /todos/:id returns 400 for unknown fields", async (): Promise<void> => {
+  const todo = seedTodo("Teste campo extra");
 
   const response = await handler(
     new Request(`http://localhost/todos/${todo.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "   " }),
+      body: JSON.stringify({ description: "extra" }),
     }),
   );
 

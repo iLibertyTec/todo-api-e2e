@@ -13,9 +13,31 @@ function isValidTitle(title: string): boolean {
   return title.trim().length > 0;
 }
 
+function hasOnlyAllowedPatchKeys(value: Record<string, unknown>): boolean {
+  return Object.keys(value).every((key: string) => {
+    return key === "title" || key === "completed";
+  });
+}
+
 function validateTodoPatch(patch: TodoPatch): void {
-  if (patch.title !== undefined && !isValidTitle(patch.title)) {
-    throw new Error("Todo title must not be empty.");
+  const patchRecord = patch as Record<string, unknown>;
+
+  if (!hasOnlyAllowedPatchKeys(patchRecord)) {
+    throw new Error("Todo patch contains invalid fields.");
+  }
+
+  if (Object.keys(patchRecord).length === 0) {
+    throw new Error("Todo patch must include at least one editable field.");
+  }
+
+  if (patch.title !== undefined) {
+    if (typeof patch.title !== "string" || !isValidTitle(patch.title)) {
+      throw new Error("Todo title must not be empty.");
+    }
+  }
+
+  if (patch.completed !== undefined && typeof patch.completed !== "boolean") {
+    throw new Error("Todo completed must be a boolean.");
   }
 }
 
@@ -58,11 +80,6 @@ export class InMemoryTodoRepository {
   }
 
   getById(id: string): Todo | null {
-    const todo = this.#todos.get(id);
-    return todo ? { ...todo } : null;
-  }
-
-  findById(id: string): Todo | null {
     const todo = this.#todos.get(id);
     return todo ? { ...todo } : null;
   }
