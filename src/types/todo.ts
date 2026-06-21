@@ -13,3 +13,8 @@ export interface CreateTodoInput {
 export interface TodoListResponse {
   items: Todo[];
 }
+
+export interface TodoStore {
+  list(): Todo[];
+  create(input: CreateTodoInput): Todo;
+}
