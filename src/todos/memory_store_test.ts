@@ -142,6 +142,18 @@ Deno.test("InMemoryTodoStore aplica validação de domínio na criação", (): v
   );
 });
 
+Deno.test("InMemoryTodoStore rejeita tipo inválido na criação", (): void => {
+  const store = new InMemoryTodoStore();
+
+  assertThrows(
+    (): void => {
+      store.create({ title: 123 } as unknown as { title: string });
+    },
+    Error,
+    "title must be a string",
+  );
+});
+
 Deno.test("InMemoryTodoStore aplica validação de domínio na atualização", (): void => {
   const store = new InMemoryTodoStore({
     createId: () => "todo-1",
@@ -156,6 +168,26 @@ Deno.test("InMemoryTodoStore aplica validação de domínio na atualização", (
     },
     Error,
     "update must include at least one field",
+  );
+});
+
+Deno.test("InMemoryTodoStore rejeita tipos inválidos na atualização", (): void => {
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => "2024-01-01T00:00:00.000Z",
+  });
+
+  store.create({ title: "Original" });
+
+  assertThrows(
+    (): void => {
+      store.update(
+        "todo-1",
+        { completed: "sim" } as unknown as { completed?: boolean },
+      );
+    },
+    Error,
+    "completed must be a boolean",
   );
 });
 
@@ -174,6 +206,33 @@ Deno.test("InMemoryTodoStore retorna cópias defensivas", (): void => {
   assertNotEquals(created.title, fetched?.title);
   assertEquals(fetched?.title, "Original");
   assertEquals(listed[0]?.title, "Original");
+});
+
+Deno.test("InMemoryTodoStore mantém estado interno após mutação da lista retornada", (): void => {
+  const store = new InMemoryTodoStore({
+    createId: () => "todo-1",
+    now: () => "2024-01-01T00:00:00.000Z",
+  });
+
+  store.create({ title: "Original" });
+  const listed = store.list();
+
+  listed[0]!.title = "Mutado fora do store";
+  listed.push({
+    id: "todo-2",
+    title: "Inserido fora do store",
+    completed: false,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+  });
+
+  assertEquals(store.list(), [{
+    id: "todo-1",
+    title: "Original",
+    completed: false,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+  }]);
 });
 
 Deno.test("InMemoryTodoStore retorna cópia defensiva em update", (): void => {
