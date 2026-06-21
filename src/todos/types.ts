@@ -15,33 +15,64 @@ export interface UpdateTodoInput {
   completed?: boolean;
 }
 
+export interface ReplaceTodoInput {
+  title: string;
+  completed: boolean;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasOnlyKeys(
+  input: Record<string, unknown>,
+  allowedKeys: readonly string[],
+): boolean {
+  return Object.keys(input).every((key: string) => allowedKeys.includes(key));
+}
+
 export function isCreateTodoInput(value: unknown): value is CreateTodoInput {
-  if (typeof value !== "object" || value === null) {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ["title"])) {
     return false;
   }
 
-  const input = value as Record<string, unknown>;
-  return typeof input.title === "string" && input.title.trim().length > 0;
+  return typeof value.title === "string" && value.title.trim().length > 0;
 }
 
 export function isUpdateTodoInput(value: unknown): value is UpdateTodoInput {
-  if (typeof value !== "object" || value === null) {
+  if (
+    !isPlainObject(value) ||
+    !hasOnlyKeys(value, ["title", "completed"])
+  ) {
     return false;
   }
 
-  const input = value as Record<string, unknown>;
-
-  if ("title" in input && input.title !== undefined) {
-    if (typeof input.title !== "string" || input.title.trim().length === 0) {
+  if ("title" in value && value.title !== undefined) {
+    if (typeof value.title !== "string" || value.title.trim().length === 0) {
       return false;
     }
   }
 
-  if ("completed" in input && input.completed !== undefined) {
-    if (typeof input.completed !== "boolean") {
+  if ("completed" in value && value.completed !== undefined) {
+    if (typeof value.completed !== "boolean") {
       return false;
     }
   }
 
-  return "title" in input || "completed" in input;
+  return "title" in value || "completed" in value;
+}
+
+export function isReplaceTodoInput(value: unknown): value is ReplaceTodoInput {
+  if (
+    !isPlainObject(value) ||
+    !hasOnlyKeys(value, ["title", "completed"])
+  ) {
+    return false;
+  }
+
+  return (
+    typeof value.title === "string" &&
+    value.title.trim().length > 0 &&
+    typeof value.completed === "boolean"
+  );
 }

@@ -1,10 +1,12 @@
 import {
   isCreateTodoInput,
+  isReplaceTodoInput,
   isUpdateTodoInput,
   type CreateTodoInput,
+  type ReplaceTodoInput,
   type UpdateTodoInput,
 } from "./types.ts";
-import type { InMemoryTodoStore } from "./store.ts";
+import type { TodoStore } from "./store.ts";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status });
@@ -18,13 +20,19 @@ function badRequest(message: string): Response {
   return json({ error: message }, 400);
 }
 
+function unsupportedMediaType(): Response {
+  return json({ error: "unsupported media type" }, 415);
+}
+
 function notFound(): Response {
   return json({ error: "not found" }, 404);
 }
 
 async function readJsonBody(req: Request): Promise<unknown | Response> {
-  if (!req.headers.get("content-type")?.includes("application/json")) {
-    return badRequest("invalid json payload");
+  const contentType = req.headers.get("content-type")?.toLowerCase();
+
+  if (contentType && !contentType.includes("json")) {
+    return unsupportedMediaType();
   }
 
   try {
@@ -34,10 +42,21 @@ async function readJsonBody(req: Request): Promise<unknown | Response> {
   }
 }
 
-export function createTodoHandler(store: InMemoryTodoStore) {
+export function createTodoHandler(store: TodoStore) {
   return async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const pathname = url.pathname;
+
+    if (pathname === "/" && req.method === "GET") {
+      return json({
+        ok: true,
+        service: "ifactory-product",
+        resources: {
+          health: "/health",
+          todos: "/api/todos",
+        },
+      });
+    }
 
     if (pathname === "/health" && req.method === "GET") {
       return json({
@@ -80,7 +99,7 @@ export function createTodoHandler(store: InMemoryTodoStore) {
         return todo ? json(todo) : notFound();
       }
 
-      if (req.method === "PATCH" || req.method === "PUT") {
+      if (req.method === "PATCH") {
         const body = await readJsonBody(req);
 
         if (body instanceof Response) {
@@ -93,6 +112,22 @@ export function createTodoHandler(store: InMemoryTodoStore) {
 
         const input: UpdateTodoInput = body;
         const todo = store.update(id, input);
+        return todo ? json(todo) : notFound();
+      }
+
+      if (req.method === "PUT") {
+        const body = await readJsonBody(req);
+
+        if (body instanceof Response) {
+          return body;
+        }
+
+        if (!isReplaceTodoInput(body)) {
+          return badRequest("invalid todo payload");
+        }
+
+        const input: ReplaceTodoInput = body;
+        const todo = store.replace(id, input);
         return todo ? json(todo) : notFound();
       }
 
