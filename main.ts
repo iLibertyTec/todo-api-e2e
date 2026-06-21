@@ -1,5 +1,5 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { listTodos } from "./src/todos.ts";
+import { createTodo, listTodos } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
@@ -16,6 +16,29 @@ export async function handler(req: Request): Promise<Response> {
 
   if (url.pathname === "/todos" && req.method === "GET") {
     return Response.json(listTodos());
+  }
+
+  if (url.pathname === "/todos" && req.method === "POST") {
+    const contentType: string | null = req.headers.get("content-type");
+
+    if (!contentType?.includes("application/json")) {
+      return Response.json({ error: "invalid json body" }, { status: 400 });
+    }
+
+    const body: unknown = await req.json().catch(() => undefined);
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("title" in body) ||
+      typeof body.title !== "string" ||
+      body.title.trim().length === 0
+    ) {
+      return Response.json({ error: "title is required" }, { status: 400 });
+    }
+
+    const todo = createTodo(body.title);
+    return Response.json(todo, { status: 201 });
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
