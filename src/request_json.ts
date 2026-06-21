@@ -1,6 +1,14 @@
 import { jsonError } from "./http_errors.ts";
 
-export type JsonObject = Record<string, unknown>;
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonObject
+  | JsonValue[];
+
+export type JsonObject = { [key: string]: JsonValue };
 
 type ReadJsonObjectResult =
   | { ok: true; value: JsonObject }
@@ -17,6 +25,85 @@ function isSupportedJsonContentType(contentType: string | null): boolean {
   return mediaType.trim().toLowerCase() === "application/json";
 }
 
+function isJsonValue(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  const prototype: object | null = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return false;
+  }
+
+  return Object.values(value).every(isJsonValue);
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype: object | null = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return false;
+  }
+
+  return Object.values(value).every(isJsonValue);
+}
+
+async function readBodyText(req: Request): Promise<string | null> {
+  if (req.body === null) {
+    return "";
+  }
+
+  const reader: ReadableStreamDefaultReader<Uint8Array> = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes: number = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset: number = 0;
+
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder().decode(bodyBytes);
+}
+
 export async function readJsonObject(
   req: Request,
 ): Promise<ReadJsonObjectResult> {
@@ -31,19 +118,19 @@ export async function readJsonObject(
     };
   }
 
-  const rawBody: string = await req.text();
+  const rawBody: string | null = await readBodyText(req);
+
+  if (rawBody === null) {
+    return {
+      ok: false,
+      response: jsonError("invalid_payload", "Request body is too large", 400),
+    };
+  }
 
   if (rawBody.trim() === "") {
     return {
       ok: false,
       response: jsonError("invalid_payload", "Request body is required", 400),
-    };
-  }
-
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
-    return {
-      ok: false,
-      response: jsonError("invalid_payload", "Request body is too large", 400),
     };
   }
 
@@ -62,11 +149,7 @@ export async function readJsonObject(
     };
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    Array.isArray(parsed)
-  ) {
+  if (!isJsonObject(parsed)) {
     return {
       ok: false,
       response: jsonError(
@@ -79,6 +162,6 @@ export async function readJsonObject(
 
   return {
     ok: true,
-    value: parsed as JsonObject,
+    value: parsed,
   };
 }

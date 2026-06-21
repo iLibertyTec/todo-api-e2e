@@ -159,3 +159,32 @@ Deno.test("readJsonObject rejects oversized payload", async () => {
     });
   }
 });
+
+Deno.test("readJsonObject accepts nested strict json objects", async () => {
+  const req = new Request("http://localhost/api/test", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      visitor: {
+        id: "abc",
+        tags: ["new", "web"],
+        active: true,
+      },
+    }),
+  });
+
+  const result = await readJsonObject(req);
+
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value, {
+      visitor: {
+        id: "abc",
+        tags: ["new", "web"],
+        active: true,
+      },
+    });
+  }
+});
