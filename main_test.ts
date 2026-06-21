@@ -82,6 +82,7 @@ Deno.test("POST /todos rejects non-json content-type with explicit error", async
   assertEquals(await response.json(), {
     error: "content-type must be application/json",
   });
+  assertEquals(listTodos(), []);
 });
 
 Deno.test("POST /todos rejects empty json body with explicit error", async () => {
@@ -98,6 +99,7 @@ Deno.test("POST /todos rejects empty json body with explicit error", async () =>
   assertEquals(await response.json(), {
     error: "request body is required",
   });
+  assertEquals(listTodos(), []);
 });
 
 Deno.test("POST /todos rejects invalid json body with explicit error", async () => {
@@ -115,6 +117,26 @@ Deno.test("POST /todos rejects invalid json body with explicit error", async () 
   assertEquals(await response.json(), {
     error: "request body must be valid JSON",
   });
+  assertEquals(listTodos(), []);
+});
+
+Deno.test("POST /todos rejects payload without valid title and does not grow collection", async () => {
+  resetTodos();
+
+  const before = listTodos();
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: false }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "title is required",
+  });
+  assertEquals(listTodos(), before);
 });
 
 Deno.test("POST /todos rejects title with only spaces", async () => {
@@ -132,6 +154,7 @@ Deno.test("POST /todos rejects title with only spaces", async () => {
   assertEquals(await response.json(), {
     error: "title is required",
   });
+  assertEquals(listTodos(), []);
 });
 
 Deno.test("POST /todos rejects title longer than supported limit", async () => {
@@ -149,6 +172,7 @@ Deno.test("POST /todos rejects title longer than supported limit", async () => {
   assertEquals(await response.json(), {
     error: "title is too long",
   });
+  assertEquals(listTodos(), []);
 });
 
 Deno.test("/todos returns 405 with Allow for unsupported methods", async () => {
