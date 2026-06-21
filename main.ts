@@ -12,7 +12,6 @@ interface RecordVisitRequestBody {
 
 const counter = new VisitCounter();
 const todoStore = new MemoryTodoStore();
-const todoHandlers = createTodoCollectionHandlers(todoStore);
 
 function parseRecordVisitRequestBody(value: unknown): RecordVisitRequestBody {
   if (typeof value !== "object" || value === null) {
@@ -38,6 +37,7 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/todos") {
+    const todoHandlers = createTodoCollectionHandlers(todoStore);
     return await todoHandlers.handle(req);
   }
 

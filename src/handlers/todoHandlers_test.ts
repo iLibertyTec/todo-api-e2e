@@ -1,19 +1,18 @@
-import {
-  assertEquals,
-  assertInstanceOf,
-} from "@std/assert";
+import { assertEquals, assertInstanceOf } from "@std/assert";
 import {
   createTodoCollectionHandlers,
   methodNotAllowedJson,
 } from "./todoHandlers.ts";
 import { MemoryTodoStore } from "../todos/memoryTodoStore.ts";
 
-Deno.test("getTodos returns 200 with todo list as json", async (): Promise<void> => {
+Deno.test("handle returns 200 with todo list as json", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   store.create({ title: "Primeira tarefa" });
   const handlers = createTodoCollectionHandlers(store);
 
-  const response = handlers.getTodos();
+  const response = await handlers.handle(
+    new Request("http://localhost/api/todos", { method: "GET" }),
+  );
 
   assertEquals(response.status, 200);
   assertEquals(response.headers.get("content-type"), "application/json");
@@ -29,7 +28,22 @@ Deno.test("getTodos returns 200 with todo list as json", async (): Promise<void>
   ]);
 });
 
-Deno.test("createTodo returns 201 with created todo", async (): Promise<void> => {
+Deno.test("handle returns 200 for HEAD without body", async (): Promise<void> => {
+  const store = new MemoryTodoStore();
+  store.create({ title: "Primeira tarefa" });
+  const handlers = createTodoCollectionHandlers(store);
+
+  const response = await handlers.handle(
+    new Request("http://localhost/api/todos", { method: "HEAD" }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(response.headers.get("content-type"), "application/json");
+  assertEquals(response.headers.get("cache-control"), "no-store");
+  assertEquals(await response.text(), "");
+});
+
+Deno.test("handle returns 201 with created todo", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   const handlers = createTodoCollectionHandlers(store);
   const request = new Request("http://localhost/api/todos", {
@@ -38,7 +52,7 @@ Deno.test("createTodo returns 201 with created todo", async (): Promise<void> =>
     body: JSON.stringify({ title: "Nova tarefa" }),
   });
 
-  const response = await handlers.createTodo(request);
+  const response = await handlers.handle(request);
   const body = await response.json();
 
   assertEquals(response.status, 201);
@@ -51,7 +65,7 @@ Deno.test("createTodo returns 201 with created todo", async (): Promise<void> =>
   assertInstanceOf(body.updatedAt, String);
 });
 
-Deno.test("createTodo returns 400 for invalid json", async (): Promise<void> => {
+Deno.test("handle returns 400 for invalid json", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   const handlers = createTodoCollectionHandlers(store);
   const request = new Request("http://localhost/api/todos", {
@@ -60,7 +74,7 @@ Deno.test("createTodo returns 400 for invalid json", async (): Promise<void> => 
     body: "{",
   });
 
-  const response = await handlers.createTodo(request);
+  const response = await handlers.handle(request);
 
   assertEquals(response.status, 400);
   assertEquals(response.headers.get("content-type"), "application/json");
@@ -68,7 +82,7 @@ Deno.test("createTodo returns 400 for invalid json", async (): Promise<void> => 
   assertEquals(await response.json(), { error: "invalid json" });
 });
 
-Deno.test("createTodo returns 400 when title is missing", async (): Promise<void> => {
+Deno.test("handle returns 400 when title is missing", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   const handlers = createTodoCollectionHandlers(store);
   const request = new Request("http://localhost/api/todos", {
@@ -77,7 +91,7 @@ Deno.test("createTodo returns 400 when title is missing", async (): Promise<void
     body: JSON.stringify({}),
   });
 
-  const response = await handlers.createTodo(request);
+  const response = await handlers.handle(request);
 
   assertEquals(response.status, 400);
   assertEquals(response.headers.get("content-type"), "application/json");
@@ -85,7 +99,7 @@ Deno.test("createTodo returns 400 when title is missing", async (): Promise<void
   assertEquals(await response.json(), { error: "invalid payload" });
 });
 
-Deno.test("createTodo returns 400 when title is empty", async (): Promise<void> => {
+Deno.test("handle returns 400 when title is empty", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   const handlers = createTodoCollectionHandlers(store);
   const request = new Request("http://localhost/api/todos", {
@@ -94,7 +108,7 @@ Deno.test("createTodo returns 400 when title is empty", async (): Promise<void> 
     body: JSON.stringify({ title: "   " }),
   });
 
-  const response = await handlers.createTodo(request);
+  const response = await handlers.handle(request);
 
   assertEquals(response.status, 400);
   assertEquals(response.headers.get("content-type"), "application/json");
@@ -103,16 +117,16 @@ Deno.test("createTodo returns 400 when title is empty", async (): Promise<void> 
 });
 
 Deno.test("methodNotAllowedJson returns 405 with Allow header", async (): Promise<void> => {
-  const response = methodNotAllowedJson(["GET", "POST", "OPTIONS"]);
+  const response = methodNotAllowedJson(["GET", "HEAD", "POST", "OPTIONS"]);
 
   assertEquals(response.status, 405);
-  assertEquals(response.headers.get("Allow"), "GET, POST, OPTIONS");
+  assertEquals(response.headers.get("Allow"), "GET, HEAD, POST, OPTIONS");
   assertEquals(response.headers.get("content-type"), "application/json");
   assertEquals(response.headers.get("cache-control"), "no-store");
   assertEquals(await response.json(), { error: "method not allowed" });
 });
 
-Deno.test("handle routes GET POST OPTIONS and 405 for todo collection", async (): Promise<void> => {
+Deno.test("handle routes GET HEAD POST OPTIONS and 405 for todo collection", async (): Promise<void> => {
   const store = new MemoryTodoStore();
   const handlers = createTodoCollectionHandlers(store);
 
@@ -120,6 +134,12 @@ Deno.test("handle routes GET POST OPTIONS and 405 for todo collection", async ()
     new Request("http://localhost/api/todos", { method: "GET" }),
   );
   assertEquals(getResponse.status, 200);
+
+  const headResponse = await handlers.handle(
+    new Request("http://localhost/api/todos", { method: "HEAD" }),
+  );
+  assertEquals(headResponse.status, 200);
+  assertEquals(await headResponse.text(), "");
 
   const postResponse = await handlers.handle(
     new Request("http://localhost/api/todos", {
@@ -133,25 +153,29 @@ Deno.test("handle routes GET POST OPTIONS and 405 for todo collection", async ()
   const optionsResponse = await handlers.handle(
     new Request("http://localhost/api/todos", { method: "OPTIONS" }),
   );
-  assertEquals(optionsResponse.status, 200);
-  assertEquals(optionsResponse.headers.get("Allow"), "GET, POST, OPTIONS");
+  assertEquals(optionsResponse.status, 204);
+  assertEquals(
+    optionsResponse.headers.get("Allow"),
+    "GET, HEAD, POST, OPTIONS",
+  );
   assertEquals(
     optionsResponse.headers.get("access-control-allow-methods"),
-    "GET, POST, OPTIONS",
+    "GET, HEAD, POST, OPTIONS",
   );
   assertEquals(
     optionsResponse.headers.get("access-control-allow-headers"),
     "content-type",
   );
-  assertEquals(await optionsResponse.json(), {
-    methods: ["GET", "POST", "OPTIONS"],
-  });
+  assertEquals(await optionsResponse.text(), "");
 
   const methodNotAllowedResponse = await handlers.handle(
     new Request("http://localhost/api/todos", { method: "DELETE" }),
   );
   assertEquals(methodNotAllowedResponse.status, 405);
-  assertEquals(methodNotAllowedResponse.headers.get("Allow"), "GET, POST, OPTIONS");
+  assertEquals(
+    methodNotAllowedResponse.headers.get("Allow"),
+    "GET, HEAD, POST, OPTIONS",
+  );
   assertEquals(await methodNotAllowedResponse.json(), {
     error: "method not allowed",
   });
