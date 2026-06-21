@@ -1,4 +1,5 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { jsonError } from "./src/http_errors.ts";
 
 const counter = new VisitCounter();
 
@@ -65,7 +66,7 @@ refresh();
     });
   }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+  return jsonError("not_found", "Route not found", 404);
 }
 
 if (import.meta.main) {
