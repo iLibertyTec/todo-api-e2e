@@ -3,6 +3,7 @@ import {
   assertEquals,
   assertNotEquals,
   assertNotStrictEquals,
+  assertThrows,
 } from "@std/assert";
 import { MemoryTodoStore } from "./memoryTodoStore.ts";
 import { Todo } from "./types.ts";
@@ -24,6 +25,24 @@ Deno.test("MemoryTodoStore creates todo with generated id, completed false and t
   assert(todo.createdAt.length > 0);
   assert(todo.updatedAt.length > 0);
   assertEquals(todo.createdAt, todo.updatedAt);
+});
+
+Deno.test("MemoryTodoStore trims title on create", (): void => {
+  const store = new MemoryTodoStore();
+
+  const todo: Todo = store.create({ title: "  Comprar pão  " });
+
+  assertEquals(todo.title, "Comprar pão");
+});
+
+Deno.test("MemoryTodoStore rejects empty title on create", (): void => {
+  const store = new MemoryTodoStore();
+
+  assertThrows(
+    (): Todo => store.create({ title: "   " }),
+    Error,
+    "title must not be empty",
+  );
 });
 
 Deno.test("MemoryTodoStore lists todos in creation order", (): void => {
@@ -61,6 +80,55 @@ Deno.test("MemoryTodoStore update changes provided fields, updates updatedAt and
   assertEquals(updated.completed, true);
   assertEquals(updated.createdAt, created.createdAt);
   assertNotEquals(updated.updatedAt, created.updatedAt);
+});
+
+Deno.test("MemoryTodoStore trims title on update", (): void => {
+  const store = new MemoryTodoStore();
+  const created: Todo = store.create({ title: "Original" });
+
+  const updated: Todo | undefined = store.update(created.id, {
+    title: "  Atualizado  ",
+  });
+
+  assert(updated);
+  assertEquals(updated.title, "Atualizado");
+});
+
+Deno.test("MemoryTodoStore rejects empty title on update", (): void => {
+  const store = new MemoryTodoStore();
+  const created: Todo = store.create({ title: "Original" });
+
+  assertThrows(
+    (): Todo | undefined => store.update(created.id, { title: "   " }),
+    Error,
+    "title must not be empty",
+  );
+});
+
+Deno.test("MemoryTodoStore rejects update without fields", (): void => {
+  const store = new MemoryTodoStore();
+  const created: Todo = store.create({ title: "Original" });
+
+  assertThrows(
+    (): Todo | undefined => store.update(created.id, {}),
+    Error,
+    "update requires at least one field",
+  );
+});
+
+Deno.test("MemoryTodoStore update keeps stable order", (): void => {
+  const store = new MemoryTodoStore();
+  const first: Todo = store.create({ title: "Primeiro" });
+  const second: Todo = store.create({ title: "Segundo" });
+  const third: Todo = store.create({ title: "Terceiro" });
+
+  store.update(second.id, { title: "Segundo atualizado", completed: true });
+
+  assertEquals(store.list().map((todo: Todo): string => todo.id), [
+    first.id,
+    second.id,
+    third.id,
+  ]);
 });
 
 Deno.test("MemoryTodoStore remove returns success only when todo exists", (): void => {

@@ -9,6 +9,16 @@ export interface UpdateTodoInput {
   completed?: boolean;
 }
 
+function normalizeTitle(title: string): string {
+  const normalized: string = title.trim();
+
+  if (normalized.length === 0) {
+    throw new Error("title must not be empty");
+  }
+
+  return normalized;
+}
+
 export class MemoryTodoStore {
   #todos: Todo[] = [];
   #nextId: number = 1;
@@ -18,10 +28,11 @@ export class MemoryTodoStore {
   }
 
   create(input: CreateTodoInput): Todo {
+    const title: string = normalizeTitle(input.title);
     const now: string = new Date().toISOString();
     const todo: Todo = {
       id: String(this.#nextId++),
-      title: input.title,
+      title,
       completed: false,
       createdAt: now,
       updatedAt: now,
@@ -44,17 +55,24 @@ export class MemoryTodoStore {
       return undefined;
     }
 
+    const hasTitleUpdate: boolean = input.title !== undefined;
+    const hasCompletedUpdate: boolean = input.completed !== undefined;
+
+    if (!hasTitleUpdate && !hasCompletedUpdate) {
+      throw new Error("update requires at least one field");
+    }
+
     const current: Todo = this.#todos[index];
     const updated: Todo = {
       ...current,
-      ...(input.title !== undefined ? { title: input.title } : {}),
-      ...(input.completed !== undefined ? { completed: input.completed } : {}),
+      ...(hasTitleUpdate ? { title: normalizeTitle(input.title as string) } : {}),
+      ...(hasCompletedUpdate ? { completed: input.completed as boolean } : {}),
       updatedAt: new Date().toISOString(),
     };
 
-    this.#todos = this.#todos.map((todo: Todo, todoIndex: number): Todo =>
-      todoIndex === index ? updated : todo
-    );
+    const nextTodos: Todo[] = [...this.#todos];
+    nextTodos[index] = updated;
+    this.#todos = nextTodos;
 
     return { ...updated };
   }
