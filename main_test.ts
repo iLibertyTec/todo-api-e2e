@@ -2,8 +2,8 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { handler } from "./main.ts";
-import { TodoStore, type Todo } from "./src/todos.ts";
+import { createHandler, handler } from "./main.ts";
+import { todoStore, TodoStore, type Todo } from "./src/todos.ts";
 
 describe("handler", () => {
   Deno.test("GET /health returns service status", async () => {
@@ -40,9 +40,8 @@ describe("handler", () => {
 
   Deno.test("GET /todos returns empty list with isolated store", async () => {
     const todos = new TodoStore();
-    const response = await handler(new Request("http://localhost/todos"), {
-      todos,
-    });
+    const isolatedHandler = createHandler({ todos });
+    const response = await isolatedHandler(new Request("http://localhost/todos"));
 
     assertEquals(response.status, 200);
     assertEquals(await response.json(), []);
@@ -54,11 +53,45 @@ describe("handler", () => {
       { id: "2", title: "Segunda tarefa", completed: true },
     ];
     const todos = new TodoStore(seededTodos);
-    const response = await handler(new Request("http://localhost/todos"), {
-      todos,
-    });
+    const isolatedHandler = createHandler({ todos });
+    const response = await isolatedHandler(new Request("http://localhost/todos"));
 
     assertEquals(response.status, 200);
     assertEquals(await response.json(), seededTodos);
+  });
+
+  Deno.test("POST /todos returns not found", async () => {
+    const isolatedHandler = createHandler({ todos: new TodoStore() });
+    const response = await isolatedHandler(
+      new Request("http://localhost/todos", { method: "POST" }),
+    );
+
+    assertEquals(response.status, 404);
+    assertEquals(await response.json(), { error: "not found" });
+  });
+
+  Deno.test("GET /todos uses injected store instead of global store", async () => {
+    const globalTodos: Todo[] = [
+      { id: "global", title: "Tarefa global", completed: false },
+    ];
+    const injectedTodos: Todo[] = [
+      { id: "injected", title: "Tarefa injetada", completed: true },
+    ];
+
+    todoStore.reset(globalTodos);
+
+    try {
+      const isolatedHandler = createHandler({
+        todos: new TodoStore(injectedTodos),
+      });
+      const response = await isolatedHandler(
+        new Request("http://localhost/todos"),
+      );
+
+      assertEquals(response.status, 200);
+      assertEquals(await response.json(), injectedTodos);
+    } finally {
+      todoStore.reset();
+    }
   });
 });

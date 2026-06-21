@@ -4,7 +4,11 @@ export type Todo = {
   completed: boolean;
 };
 
-export class TodoStore {
+export interface TodoRepository {
+  list(): Todo[];
+}
+
+export class TodoStore implements TodoRepository {
   #todos: Todo[];
 
   constructor(initialTodos: Todo[] = []) {
@@ -20,4 +24,4 @@ export class TodoStore {
   }
 }
 
-export const todoStore = new TodoStore();
+export const todoStore: TodoStore = new TodoStore();
