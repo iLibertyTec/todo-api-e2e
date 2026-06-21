@@ -59,6 +59,59 @@ Deno.test("POST /todos validates required title", async () => {
   assertEquals(await response.json(), { error: "title is required" });
 });
 
+Deno.test("POST /todos returns 400 for invalid json without mutating store", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "invalid json" });
+
+  const listResponse = await handler(new Request("http://localhost/todos"));
+  assertEquals(listResponse.status, 200);
+  assertEquals(await listResponse.json(), []);
+});
+
+Deno.test("POST /todos returns 400 when title is missing without mutating store", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ completed: false }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "title is required" });
+
+  const listResponse = await handler(new Request("http://localhost/todos"));
+  assertEquals(listResponse.status, 200);
+  assertEquals(await listResponse.json(), []);
+});
+
+Deno.test("POST /todos returns 400 when title is blank", async () => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title: "   " }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "title is required" });
+});
+
 Deno.test("GET /todos does not conflict with existing static routes", async () => {
   const todosResponse = await handler(new Request("http://localhost/todos"));
   assertEquals(todosResponse.status, 200);

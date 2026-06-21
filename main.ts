@@ -20,15 +20,30 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/todos" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
-      : {};
+    const contentType: string = req.headers.get("content-type") ?? "";
 
-    if (typeof body.title !== "string") {
+    if (!contentType.includes("json")) {
       return Response.json({ error: "title is required" }, { status: 400 });
     }
 
-    const todo = todoStore.create(body.title);
+    let body: unknown;
+
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ error: "invalid json" }, { status: 400 });
+    }
+
+    const title: unknown =
+      typeof body === "object" && body !== null && "title" in body
+        ? body.title
+        : undefined;
+
+    if (typeof title !== "string" || title.trim() === "") {
+      return Response.json({ error: "title is required" }, { status: 400 });
+    }
+
+    const todo = todoStore.create(title);
     return Response.json(todo, { status: 201 });
   }
 
