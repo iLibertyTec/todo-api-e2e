@@ -14,17 +14,33 @@ export interface TodoStore {
   delete(id: string): boolean;
 }
 
+function cloneTodo(todo: Todo): Todo {
+  return {
+    ...todo,
+    createdAt: new Date(todo.createdAt),
+    updatedAt: new Date(todo.updatedAt),
+  };
+}
+
+function createId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export class InMemoryTodoStore implements TodoStore {
   readonly #todos: Map<string, Todo> = new Map();
 
   list(): Todo[] {
-    return Array.from(this.#todos.values());
+    return Array.from(this.#todos.values(), cloneTodo);
   }
 
   create(input: CreateTodoInput): Todo {
     const now = new Date();
     const todo: Todo = {
-      id: crypto.randomUUID(),
+      id: createId(),
       title: input.title.trim(),
       completed: false,
       createdAt: now,
@@ -32,15 +48,16 @@ export class InMemoryTodoStore implements TodoStore {
     };
 
     this.#todos.set(todo.id, todo);
-    return todo;
+    return cloneTodo(todo);
   }
 
   getById(id: string): Todo | undefined {
-    return this.#todos.get(id);
+    const todo: Todo | undefined = this.#todos.get(id);
+    return todo ? cloneTodo(todo) : undefined;
   }
 
   update(id: string, input: UpdateTodoInput): Todo | undefined {
-    const current = this.#todos.get(id);
+    const current: Todo | undefined = this.#todos.get(id);
 
     if (!current) {
       return undefined;
@@ -56,11 +73,11 @@ export class InMemoryTodoStore implements TodoStore {
     };
 
     this.#todos.set(id, updated);
-    return updated;
+    return cloneTodo(updated);
   }
 
   replace(id: string, input: ReplaceTodoInput): Todo | undefined {
-    const current = this.#todos.get(id);
+    const current: Todo | undefined = this.#todos.get(id);
 
     if (!current) {
       return undefined;
@@ -74,7 +91,7 @@ export class InMemoryTodoStore implements TodoStore {
     };
 
     this.#todos.set(id, updated);
-    return updated;
+    return cloneTodo(updated);
   }
 
   delete(id: string): boolean {

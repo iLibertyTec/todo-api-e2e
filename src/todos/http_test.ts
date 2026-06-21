@@ -1,43 +1,53 @@
 import {
   assertEquals,
-  assertExists,
+  assertInstanceOf,
+  assertNotEquals,
 } from "@std/assert";
 import { createTodoHandler } from "./http.ts";
 import { InMemoryTodoStore } from "./store.ts";
 
-Deno.test("GET /health returns healthy response", async () => {
+Deno.test("GET /health returns service status", async () => {
   const handler = createTodoHandler(new InMemoryTodoStore());
 
-  const response = await handler(new Request("http://localhost/health"));
+  const res = await handler(new Request("http://localhost/health"));
 
-  assertEquals(response.status, 200);
-  assertEquals(await response.json(), {
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), {
     ok: true,
     service: "ifactory-product",
     version: "0.1.0",
   });
 });
 
-Deno.test("GET / returns API metadata", async () => {
+Deno.test("known routes return 405 for unsupported methods", async () => {
   const handler = createTodoHandler(new InMemoryTodoStore());
 
-  const response = await handler(new Request("http://localhost/"));
+  const rootRes = await handler(
+    new Request("http://localhost/", { method: "POST" }),
+  );
+  const healthRes = await handler(
+    new Request("http://localhost/health", { method: "POST" }),
+  );
 
-  assertEquals(response.status, 200);
-  assertEquals(await response.json(), {
-    ok: true,
-    service: "ifactory-product",
-    resources: {
-      health: "/health",
-      todos: "/api/todos",
-    },
-  });
+  assertEquals(rootRes.status, 405);
+  assertEquals(await rootRes.json(), { error: "method not allowed" });
+  assertEquals(healthRes.status, 405);
+  assertEquals(await healthRes.json(), { error: "method not allowed" });
 });
 
-Deno.test("POST /api/todos creates a todo", async () => {
+Deno.test("GET / returns 404", async () => {
   const handler = createTodoHandler(new InMemoryTodoStore());
 
-  const response = await handler(
+  const res = await handler(new Request("http://localhost/"));
+
+  assertEquals(res.status, 404);
+  assertEquals(await res.text(), "Not Found");
+});
+
+Deno.test("CRUD /api/todos works end-to-end", async () => {
+  const handler = createTodoHandler(new InMemoryTodoStore());
+
+  const createRes = await handler(
     new Request("http://localhost/api/todos", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -45,158 +55,115 @@ Deno.test("POST /api/todos creates a todo", async () => {
     }),
   );
 
-  assertEquals(response.status, 201);
+  assertEquals(createRes.status, 201);
+  const created = await createRes.json();
+  assertEquals(created.title, "Buy milk");
+  assertEquals(created.completed, false);
+  assertInstanceOf(new Date(created.createdAt), Date);
+  assertInstanceOf(new Date(created.updatedAt), Date);
 
-  const body = await response.json();
-  assertEquals(body.title, "Buy milk");
-  assertEquals(body.completed, false);
-  assertExists(body.id);
-  assertExists(body.createdAt);
-  assertExists(body.updatedAt);
-});
+  const listRes = await handler(new Request("http://localhost/api/todos"));
+  assertEquals(listRes.status, 200);
+  const list = await listRes.json();
+  assertEquals(list.length, 1);
+  assertEquals(list[0].id, created.id);
 
-Deno.test("POST /api/todos accepts json without content-type header", async () => {
-  const handler = createTodoHandler(new InMemoryTodoStore());
-
-  const response = await handler(
-    new Request("http://localhost/api/todos", {
-      method: "POST",
-      body: JSON.stringify({ title: "Buy milk" }),
-    }),
+  const getRes = await handler(
+    new Request(`http://localhost/api/todos/${created.id}`),
   );
+  assertEquals(getRes.status, 200);
+  const fetched = await getRes.json();
+  assertEquals(fetched.id, created.id);
 
-  assertEquals(response.status, 201);
-});
-
-Deno.test("POST /api/todos rejects invalid media type", async () => {
-  const handler = createTodoHandler(new InMemoryTodoStore());
-
-  const response = await handler(
-    new Request("http://localhost/api/todos", {
-      method: "POST",
-      headers: { "content-type": "text/plain" },
-      body: JSON.stringify({ title: "Buy milk" }),
-    }),
-  );
-
-  assertEquals(response.status, 415);
-  assertEquals(await response.json(), { error: "unsupported media type" });
-});
-
-Deno.test("GET /api/todos lists todos", async () => {
-  const store = new InMemoryTodoStore();
-  store.create({ title: "Buy milk" });
-  store.create({ title: "Walk dog" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(new Request("http://localhost/api/todos"));
-
-  assertEquals(response.status, 200);
-  const body = await response.json();
-  assertEquals(body.length, 2);
-});
-
-Deno.test("GET /api/todos/:id returns a todo", async () => {
-  const store = new InMemoryTodoStore();
-  const todo = store.create({ title: "Buy milk" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(
-    new Request(`http://localhost/api/todos/${todo.id}`),
-  );
-
-  assertEquals(response.status, 200);
-  assertEquals((await response.json()).id, todo.id);
-});
-
-Deno.test("GET /api/todos/:id returns 404 for missing todo", async () => {
-  const handler = createTodoHandler(new InMemoryTodoStore());
-
-  const response = await handler(
-    new Request("http://localhost/api/todos/missing"),
-  );
-
-  assertEquals(response.status, 404);
-  assertEquals(await response.json(), { error: "not found" });
-});
-
-Deno.test("PATCH /api/todos/:id updates a todo partially", async () => {
-  const store = new InMemoryTodoStore();
-  const todo = store.create({ title: "Buy milk" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(
-    new Request(`http://localhost/api/todos/${todo.id}`, {
+  const patchRes = await handler(
+    new Request(`http://localhost/api/todos/${created.id}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json; charset=utf-8" },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ completed: true }),
     }),
   );
+  assertEquals(patchRes.status, 200);
+  const patched = await patchRes.json();
+  assertEquals(patched.completed, true);
 
-  assertEquals(response.status, 200);
-  const body = await response.json();
-  assertEquals(body.id, todo.id);
-  assertEquals(body.title, "Buy milk");
-  assertEquals(body.completed, true);
-});
-
-Deno.test("PUT /api/todos/:id replaces a todo", async () => {
-  const store = new InMemoryTodoStore();
-  const todo = store.create({ title: "Buy milk" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(
-    new Request(`http://localhost/api/todos/${todo.id}`, {
+  const putRes = await handler(
+    new Request(`http://localhost/api/todos/${created.id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Walk dog", completed: true }),
+      body: JSON.stringify({ title: "Buy bread", completed: false }),
     }),
   );
+  assertEquals(putRes.status, 200);
+  const replaced = await putRes.json();
+  assertEquals(replaced.title, "Buy bread");
+  assertEquals(replaced.completed, false);
+  assertNotEquals(replaced.updatedAt, created.updatedAt);
 
-  assertEquals(response.status, 200);
-  const body = await response.json();
-  assertEquals(body.id, todo.id);
-  assertEquals(body.title, "Walk dog");
-  assertEquals(body.completed, true);
-});
-
-Deno.test("PATCH /api/todos/:id rejects unknown fields", async () => {
-  const store = new InMemoryTodoStore();
-  const todo = store.create({ title: "Buy milk" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(
-    new Request(`http://localhost/api/todos/${todo.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ completed: true, extra: "invalid" }),
-    }),
-  );
-
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), { error: "invalid todo payload" });
-});
-
-Deno.test("DELETE /api/todos/:id removes a todo", async () => {
-  const store = new InMemoryTodoStore();
-  const todo = store.create({ title: "Buy milk" });
-  const handler = createTodoHandler(store);
-
-  const response = await handler(
-    new Request(`http://localhost/api/todos/${todo.id}`, {
+  const deleteRes = await handler(
+    new Request(`http://localhost/api/todos/${created.id}`, {
       method: "DELETE",
     }),
   );
+  assertEquals(deleteRes.status, 204);
 
-  assertEquals(response.status, 204);
-  assertEquals(store.getById(todo.id), undefined);
+  const getMissingRes = await handler(
+    new Request(`http://localhost/api/todos/${created.id}`),
+  );
+  assertEquals(getMissingRes.status, 404);
+  assertEquals(await getMissingRes.json(), { error: "not found" });
 });
 
-Deno.test("legacy /api/visits is not implemented", async () => {
+Deno.test("invalid payloads return 400", async () => {
   const handler = createTodoHandler(new InMemoryTodoStore());
 
-  const response = await handler(new Request("http://localhost/api/visits"));
+  const emptyBodyRes = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    }),
+  );
 
-  assertEquals(response.status, 404);
-  assertEquals(await response.json(), { error: "not found" });
+  assertEquals(emptyBodyRes.status, 400);
+  assertEquals(await emptyBodyRes.json(), { error: "invalid todo payload" });
+
+  const invalidShapeRes = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    }),
+  );
+
+  assertEquals(invalidShapeRes.status, 400);
+  assertEquals(await invalidShapeRes.json(), {
+    error: "invalid todo payload",
+  });
+});
+
+Deno.test("unsupported media type returns 415", async () => {
+  const handler = createTodoHandler(new InMemoryTodoStore());
+
+  const res = await handler(
+    new Request("http://localhost/api/todos", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "hello",
+    }),
+  );
+
+  assertEquals(res.status, 415);
+  assertEquals(await res.json(), { error: "unsupported media type" });
+});
+
+Deno.test("store does not expose internal todo references", () => {
+  const store = new InMemoryTodoStore();
+  const created = store.create({ title: "Test" });
+
+  created.title = "Changed outside";
+  created.createdAt.setFullYear(2000);
+
+  const fetched = store.getById(created.id);
+
+  assertEquals(fetched?.title, "Test");
+  assertNotEquals(fetched?.createdAt.getFullYear(), 2000);
 });

@@ -29,16 +29,20 @@ function notFound(): Response {
 }
 
 async function readJsonBody(req: Request): Promise<unknown | Response> {
-  const contentType = req.headers.get("content-type")?.toLowerCase();
+  const contentType: string | null = req.headers.get("content-type");
 
-  if (contentType && !contentType.includes("json")) {
-    return unsupportedMediaType();
+  if (contentType !== null) {
+    const mediaType: string = contentType.split(";")[0].trim().toLowerCase();
+
+    if (mediaType !== "application/json") {
+      return unsupportedMediaType();
+    }
   }
 
   try {
     return await req.json();
   } catch {
-    return badRequest("invalid json payload");
+    return badRequest("invalid todo payload");
   }
 }
 
@@ -47,23 +51,24 @@ export function createTodoHandler(store: TodoStore) {
     const url = new URL(req.url);
     const pathname = url.pathname;
 
-    if (pathname === "/" && req.method === "GET") {
-      return json({
-        ok: true,
-        service: "ifactory-product",
-        resources: {
-          health: "/health",
-          todos: "/api/todos",
-        },
-      });
+    if (pathname === "/") {
+      if (req.method === "GET") {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      return methodNotAllowed();
     }
 
-    if (pathname === "/health" && req.method === "GET") {
-      return json({
-        ok: true,
-        service: "ifactory-product",
-        version: "0.1.0",
-      });
+    if (pathname === "/health") {
+      if (req.method === "GET") {
+        return json({
+          ok: true,
+          service: "ifactory-product",
+          version: "0.1.0",
+        });
+      }
+
+      return methodNotAllowed();
     }
 
     if (pathname === "/api/todos") {
@@ -89,10 +94,12 @@ export function createTodoHandler(store: TodoStore) {
       return methodNotAllowed();
     }
 
-    const todoMatch = pathname.match(/^\/api\/todos\/([^/]+)$/);
+    const todoMatch: RegExpMatchArray | null = pathname.match(
+      /^\/api\/todos\/([^/]+)$/,
+    );
 
     if (todoMatch) {
-      const id = todoMatch[1];
+      const id: string = todoMatch[1];
 
       if (req.method === "GET") {
         const todo = store.getById(id);
@@ -132,7 +139,7 @@ export function createTodoHandler(store: TodoStore) {
       }
 
       if (req.method === "DELETE") {
-        const deleted = store.delete(id);
+        const deleted: boolean = store.delete(id);
         return deleted ? new Response(null, { status: 204 }) : notFound();
       }
 
