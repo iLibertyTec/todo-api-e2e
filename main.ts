@@ -1,5 +1,6 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { SERVICE_NAME, SERVICE_VERSION } from "./src/config/service.ts";
+import { handleHealth } from "./src/handlers/health.ts";
+import { SERVICE_NAME } from "./src/config/service.ts";
 
 const counter = new VisitCounter();
 
@@ -7,11 +8,19 @@ export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return Response.json({
-      ok: true,
-      service: SERVICE_NAME,
-      version: SERVICE_VERSION,
-    });
+    if (req.method !== "GET") {
+      return Response.json(
+        { error: "method not allowed" },
+        {
+          status: 405,
+          headers: {
+            allow: "GET",
+          },
+        },
+      );
+    }
+
+    return handleHealth();
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
