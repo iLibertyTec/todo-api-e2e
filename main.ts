@@ -1,5 +1,9 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
-import { InMemoryTodoRepository, type Todo } from "./src/todos.ts";
+import {
+  InMemoryTodoRepository,
+  type Todo,
+  type TodoPatch,
+} from "./src/todos.ts";
 
 const counter = new VisitCounter();
 const todoRepository = new InMemoryTodoRepository();
@@ -24,6 +28,35 @@ function getTodoIdFromPath(pathname: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isTodoPatchPayload(value: unknown): value is TodoPatch {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const patch = value as Record<string, unknown>;
+  const keys = Object.keys(patch);
+
+  if (keys.length === 0) {
+    return false;
+  }
+
+  for (const key of keys) {
+    if (key !== "title" && key !== "completed") {
+      return false;
+    }
+  }
+
+  if ("title" in patch && typeof patch.title !== "string") {
+    return false;
+  }
+
+  if ("completed" in patch && typeof patch.completed !== "boolean") {
+    return false;
+  }
+
+  return true;
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -59,10 +92,34 @@ export async function handler(req: Request): Promise<Response> {
     return Response.json(todoRepository.list());
   }
 
-  const todoId = req.method === "GET" ? getTodoIdFromPath(url.pathname) : null;
+  const todoId = req.method === "GET" || req.method === "PATCH"
+    ? getTodoIdFromPath(url.pathname)
+    : null;
 
-  if (todoId !== null) {
+  if (todoId !== null && req.method === "GET") {
     const todo = todoRepository.getById(todoId);
+
+    if (todo === null) {
+      return Response.json({ error: "not found" }, { status: 404 });
+    }
+
+    return Response.json(todo);
+  }
+
+  if (todoId !== null && req.method === "PATCH") {
+    let body: unknown;
+
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ error: "invalid json" }, { status: 400 });
+    }
+
+    if (!isTodoPatchPayload(body)) {
+      return Response.json({ error: "invalid payload" }, { status: 400 });
+    }
+
+    const todo = todoRepository.patch(todoId, body);
 
     if (todo === null) {
       return Response.json({ error: "not found" }, { status: 404 });
