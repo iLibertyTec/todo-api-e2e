@@ -35,6 +35,23 @@ Deno.test("readJsonObject accepts application/json with charset", async () => {
   }
 });
 
+Deno.test("readJsonObject accepts content type without spaces and uppercase", async () => {
+  const req = new Request("http://localhost/api/test", {
+    method: "POST",
+    headers: {
+      "content-type": "APPLICATION/JSON;charset=UTF-8",
+    },
+    body: JSON.stringify({ visitorId: "abc" }),
+  });
+
+  const result = await readJsonObject(req);
+
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value, { visitorId: "abc" });
+  }
+});
+
 Deno.test("readJsonObject accepts application/*+json content types", async () => {
   const payloads = [
     "application/ld+json",

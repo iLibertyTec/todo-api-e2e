@@ -21,11 +21,21 @@ function isSupportedJsonContentType(contentType: string | null): boolean {
     return false;
   }
 
-  const [mediaType] = contentType.split(";", 1);
-  const normalizedMediaType: string = mediaType.trim().toLowerCase();
+  const normalizedContentType: string = contentType.trim().toLowerCase();
+  const semicolonIndex: number = normalizedContentType.indexOf(";");
+  const mediaType: string = semicolonIndex === -1
+    ? normalizedContentType
+    : normalizedContentType.slice(0, semicolonIndex).trim();
 
-  return normalizedMediaType === "application/json" ||
-    normalizedMediaType.endsWith("+json");
+  return mediaType === "application/json" || mediaType.endsWith("+json");
+}
+
+function isPlainJsonObjectRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.getPrototypeOf(value) === Object.prototype;
 }
 
 function isJsonValue(value: unknown): value is JsonValue {
@@ -42,29 +52,19 @@ function isJsonValue(value: unknown): value is JsonValue {
     return value.every(isJsonValue);
   }
 
-  if (typeof value !== "object") {
+  if (!isPlainJsonObjectRecord(value)) {
     return false;
   }
 
-  const prototype: object | null = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) {
-    return false;
-  }
-
-  return Object.values(value).every(isJsonValue);
+  return Object.entries(value).every(([, entryValue]) => isJsonValue(entryValue));
 }
 
 function isJsonObject(value: unknown): value is JsonObject {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!isPlainJsonObjectRecord(value)) {
     return false;
   }
 
-  const prototype: object | null = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) {
-    return false;
-  }
-
-  return Object.values(value).every(isJsonValue);
+  return Object.entries(value).every(([, entryValue]) => isJsonValue(entryValue));
 }
 
 async function readBodyText(req: Request): Promise<string | null> {
@@ -75,7 +75,6 @@ async function readBodyText(req: Request): Promise<string | null> {
   const reader: ReadableStreamDefaultReader<Uint8Array> = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let totalBytes: number = 0;
-  let cancelled: boolean = false;
 
   try {
     while (true) {
@@ -87,7 +86,6 @@ async function readBodyText(req: Request): Promise<string | null> {
 
       totalBytes += value.byteLength;
       if (totalBytes > MAX_BODY_BYTES) {
-        cancelled = true;
         await reader.cancel();
         return null;
       }
@@ -95,9 +93,7 @@ async function readBodyText(req: Request): Promise<string | null> {
       chunks.push(value);
     }
   } finally {
-    if (!cancelled) {
-      reader.releaseLock();
-    }
+    reader.releaseLock();
   }
 
   const bodyBytes = new Uint8Array(totalBytes);
