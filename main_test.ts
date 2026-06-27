@@ -1,6 +1,7 @@
 import {
   assertEquals,
   assertObjectMatch,
+  assertStringIncludes,
 } from "@std/assert";
 import { handler } from "./main.ts";
 import { SERVICE_NAME, SERVICE_VERSION } from "./src/config/service.ts";
@@ -20,6 +21,43 @@ Deno.test("GET /health responde 200 com metadados do serviço", async (): Promis
     service: SERVICE_NAME,
     version: SERVICE_VERSION,
   });
+});
+
+Deno.test("GET / retorna HTML simples apresentando a Todo API", async (): Promise<void> => {
+  const response = await handler(new Request("http://localhost/"));
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type")?.includes("text/html"),
+    true,
+  );
+
+  const body = await response.text();
+  assertStringIncludes(body, "Todo API");
+  assertStringIncludes(body, "GET /api/todos");
+  assertStringIncludes(body, "POST /api/todos");
+});
+
+Deno.test("GET /api/visits responde 404", async (): Promise<void> => {
+  const response = await handler(new Request("http://localhost/api/visits"));
+
+  assertEquals(response.status, 404);
+  assertEquals(await response.json(), { error: "not found" });
+});
+
+Deno.test("POST /api/visits responde 404", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ visitorId: "browser" }),
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assertEquals(await response.json(), { error: "not found" });
 });
 
 Deno.test("GET /api/todos responde 200 com listagem", async (): Promise<void> => {
