@@ -1,8 +1,18 @@
-import {
+import type {
   CreateTodoInput,
+  ReplaceTodoInput,
   Todo,
   UpdateTodoInput,
 } from "./types.ts";
+
+export interface TodoStore {
+  list(): Todo[];
+  create(input: CreateTodoInput): Todo;
+  getById(id: string): Todo | undefined;
+  update(id: string, input: UpdateTodoInput): Todo | undefined;
+  replace(id: string, input: ReplaceTodoInput): Todo | undefined;
+  delete(id: string): boolean;
+}
 
 function cloneTodo(todo: Todo): Todo {
   return {
@@ -12,29 +22,26 @@ function cloneTodo(todo: Todo): Todo {
   };
 }
 
-export class InMemoryTodoStore {
-  #todos: Map<string, Todo>;
-  #nextId: number;
-
-  constructor() {
-    this.#todos = new Map<string, Todo>();
-    this.#nextId = 1;
+function createId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
   }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export class InMemoryTodoStore implements TodoStore {
+  readonly #todos: Map<string, Todo> = new Map();
 
   list(): Todo[] {
-    return Array.from(this.#todos.values()).map(cloneTodo);
-  }
-
-  getById(id: string): Todo | undefined {
-    const todo: Todo | undefined = this.#todos.get(id);
-    return todo ? cloneTodo(todo) : undefined;
+    return Array.from(this.#todos.values(), cloneTodo);
   }
 
   create(input: CreateTodoInput): Todo {
-    const now: Date = new Date();
+    const now = new Date();
     const todo: Todo = {
-      id: String(this.#nextId++),
-      title: input.title,
+      id: createId(),
+      title: input.title.trim(),
       completed: false,
       createdAt: now,
       updatedAt: now,
@@ -42,6 +49,11 @@ export class InMemoryTodoStore {
 
     this.#todos.set(todo.id, todo);
     return cloneTodo(todo);
+  }
+
+  getById(id: string): Todo | undefined {
+    const todo: Todo | undefined = this.#todos.get(id);
+    return todo ? cloneTodo(todo) : undefined;
   }
 
   update(id: string, input: UpdateTodoInput): Todo | undefined {
@@ -53,8 +65,28 @@ export class InMemoryTodoStore {
 
     const updated: Todo = {
       ...current,
-      title: input.title ?? current.title,
-      completed: input.completed ?? current.completed,
+      title: input.title !== undefined ? input.title.trim() : current.title,
+      completed: input.completed !== undefined
+        ? input.completed
+        : current.completed,
+      updatedAt: new Date(),
+    };
+
+    this.#todos.set(id, updated);
+    return cloneTodo(updated);
+  }
+
+  replace(id: string, input: ReplaceTodoInput): Todo | undefined {
+    const current: Todo | undefined = this.#todos.get(id);
+
+    if (!current) {
+      return undefined;
+    }
+
+    const updated: Todo = {
+      ...current,
+      title: input.title.trim(),
+      completed: input.completed,
       updatedAt: new Date(),
     };
 
@@ -64,10 +96,5 @@ export class InMemoryTodoStore {
 
   delete(id: string): boolean {
     return this.#todos.delete(id);
-  }
-
-  reset(): void {
-    this.#todos.clear();
-    this.#nextId = 1;
   }
 }
