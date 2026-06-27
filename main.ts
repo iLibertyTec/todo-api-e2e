@@ -42,13 +42,22 @@ async function readJsonBody(req: Request): Promise<unknown> {
   }
 
   const bodyText = await req.text();
+
+  if (bodyText.length === 0) {
+    throw new Error("missing_body");
+  }
+
   const bodySize = new TextEncoder().encode(bodyText).length;
 
   if (bodySize > MAX_JSON_BODY_BYTES) {
     throw new Error("payload_too_large");
   }
 
-  return JSON.parse(bodyText) as unknown;
+  try {
+    return JSON.parse(bodyText) as unknown;
+  } catch {
+    throw new Error("invalid_json");
+  }
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -94,7 +103,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!isJsonMediaType(req.headers.get("content-type"))) {
-      return jsonError("invalid_payload", "Invalid JSON payload", 400);
+      return jsonError("invalid_content_type", "Content-Type must be application/json", 400);
     }
 
     let body: unknown;
@@ -102,8 +111,16 @@ export async function handler(req: Request): Promise<Response> {
     try {
       body = await readJsonBody(req);
     } catch (error) {
-      if (error instanceof Error && error.message === "payload_too_large") {
+      if (!(error instanceof Error)) {
+        return jsonError("invalid_payload", "Invalid JSON payload", 400);
+      }
+
+      if (error.message === "payload_too_large") {
         return jsonError("payload_too_large", "Payload too large", 413);
+      }
+
+      if (error.message === "missing_body") {
+        return jsonError("missing_payload", "Request body is required", 400);
       }
 
       return jsonError("invalid_payload", "Invalid JSON payload", 400);
@@ -119,13 +136,11 @@ export async function handler(req: Request): Promise<Response> {
       return jsonError("invalid_title", "Title is required", 400);
     }
 
-    const normalizedTitle = title.trim();
-
-    if (normalizedTitle.length > MAX_TODO_TITLE_LENGTH) {
+    if (title.length > MAX_TODO_TITLE_LENGTH) {
       return jsonError("invalid_title", "Title is too long", 400);
     }
 
-    const todo = createTodo(normalizedTitle);
+    const todo = createTodo(title);
     return Response.json(todo, { status: 201 });
   }
 

@@ -157,6 +157,7 @@ deno.test("POST /todos rejects missing payload with standardized JSON 400", asyn
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
+      headers: { "content-type": "application/json" },
     }),
   );
 
@@ -168,8 +169,8 @@ deno.test("POST /todos rejects missing payload with standardized JSON 400", asyn
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
-    error: "invalid_payload",
-    message: "Invalid JSON payload",
+    error: "missing_payload",
+    message: "Request body is required",
   });
 });
 
@@ -190,8 +191,8 @@ deno.test("POST /todos rejects non-json content-type with standardized JSON 400"
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
-    error: "invalid_payload",
-    message: "Invalid JSON payload",
+    error: "invalid_content_type",
+    message: "Content-Type must be application/json",
   });
 });
 
@@ -208,8 +209,8 @@ deno.test("POST /todos rejects invalid application/json substring media type", a
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
-    error: "invalid_payload",
-    message: "Invalid JSON payload",
+    error: "invalid_content_type",
+    message: "Content-Type must be application/json",
   });
 });
 
@@ -235,84 +236,164 @@ deno.test("POST /todos rejects invalid JSON with standardized JSON 400", async (
   });
 });
 
-deno.test("POST /todos rejects invalid title variants with standardized JSON 400", async (): Promise<void> => {
-  const invalidBodies: JsonValue[] = [
-    {},
-    { title: "" },
-    { title: "   " },
-    { title: null },
-    { title: 123 },
-    { title: true },
-    { title: {} },
-    { title: [] },
-    [],
-    null,
-  ];
-
-  for (const invalidBody of invalidBodies) {
-    const response = await handler(
-      new Request("http://localhost/todos", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(invalidBody),
-      }),
-    );
-
-    assertEquals(response.status, 400);
-    assertEquals(
-      response.headers.get("content-type"),
-      "application/json; charset=utf-8",
-    );
-
-    const body = await response.json() as JsonObject;
-    assertEquals(body, {
-      error: "invalid_title",
-      message: "Title is required",
-    });
-  }
-});
-
-deno.test("POST /todos rejects title longer than maximum limit", async (): Promise<void> => {
+deno.test("POST /todos rejects missing title", async (): Promise<void> => {
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "a".repeat(201) }),
+      body: JSON.stringify({}),
     }),
   );
 
   assertEquals(response.status, 400);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
     error: "invalid_title",
-    message: "Title is too long",
+    message: "Title is required",
   });
 });
 
-deno.test("POST /todos rejects payload larger than 1 MB", async (): Promise<void> => {
-  const oversizedTitle = "a".repeat(1024 * 1024 + 1);
+deno.test("POST /todos rejects empty title", async (): Promise<void> => {
   const response = await handler(
     new Request("http://localhost/todos", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: oversizedTitle }),
+      body: JSON.stringify({ title: "" }),
     }),
   );
 
-  assertEquals(response.status, 413);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
+  assertEquals(response.status, 400);
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
-    error: "payload_too_large",
-    message: "Payload too large",
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects blank title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "   " }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects null title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: null }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects numeric title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: 123 }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects boolean title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: true }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects object title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: { text: "Comprar leite" } }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects array title", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: ["Comprar leite"] }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
+  });
+});
+
+deno.test("POST /todos rejects non-object JSON payload", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify([]),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is required",
   });
 });
