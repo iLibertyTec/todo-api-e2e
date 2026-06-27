@@ -28,7 +28,25 @@ function notFound(): Response {
   return json({ error: "not found" }, 404);
 }
 
+function hasRequestBody(req: Request): boolean {
+  const contentLength: string | null = req.headers.get("content-length");
+
+  if (contentLength !== null) {
+    const parsed: number = Number(contentLength);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return true;
+    }
+  }
+
+  return req.body !== null;
+}
+
 async function readJsonBody(req: Request): Promise<unknown | Response> {
+  if (!hasRequestBody(req)) {
+    return badRequest("missing todo payload");
+  }
+
   const contentType: string | null = req.headers.get("content-type");
 
   if (contentType !== null) {
@@ -53,7 +71,15 @@ export function createTodoHandler(store: TodoStore) {
 
     if (pathname === "/") {
       if (req.method === "GET") {
-        return new Response("Not Found", { status: 404 });
+        return new Response(
+          "<!doctype html><html><head><meta charset=\"utf-8\"><title>Todo API</title></head><body><h1>Todo API</h1><p>Service is running.</p></body></html>",
+          {
+            status: 200,
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+            },
+          },
+        );
       }
 
       return methodNotAllowed();
