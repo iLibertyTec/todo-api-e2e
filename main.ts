@@ -3,6 +3,7 @@ import { jsonError } from "./src/http_errors.ts";
 import { createTodo } from "./src/todos.ts";
 
 const counter = new VisitCounter();
+const MAX_TODO_TITLE_LENGTH = 200;
 
 function methodNotAllowed(allow: string): Response {
   const response = jsonError(
@@ -56,6 +57,10 @@ export async function handler(req: Request): Promise<Response> {
       return methodNotAllowed("POST");
     }
 
+    if (!req.headers.get("content-type")?.includes("application/json")) {
+      return jsonError("invalid_payload", "Invalid JSON payload", 400);
+    }
+
     let body: unknown;
 
     try {
@@ -74,7 +79,13 @@ export async function handler(req: Request): Promise<Response> {
       return jsonError("invalid_title", "Title is required", 400);
     }
 
-    const todo = createTodo(title.trim());
+    const normalizedTitle = title.trim();
+
+    if (normalizedTitle.length > MAX_TODO_TITLE_LENGTH) {
+      return jsonError("invalid_title", "Title is too long", 400);
+    }
+
+    const todo = createTodo(normalizedTitle);
     return Response.json(todo, { status: 201 });
   }
 

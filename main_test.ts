@@ -133,6 +133,28 @@ deno.test("POST /todos rejects missing payload with standardized JSON 400", asyn
   });
 });
 
+deno.test("POST /todos rejects non-json content-type with standardized JSON 400", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ title: "Comprar leite" }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_payload",
+    message: "Invalid JSON payload",
+  });
+});
+
 deno.test("POST /todos rejects invalid JSON with standardized JSON 400", async (): Promise<void> => {
   const response = await handler(
     new Request("http://localhost/todos", {
@@ -190,6 +212,28 @@ deno.test("POST /todos rejects invalid title variants with standardized JSON 400
       message: "Title is required",
     });
   }
+});
+
+deno.test("POST /todos rejects title longer than maximum limit", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "a".repeat(201) }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_title",
+    message: "Title is too long",
+  });
 });
 
 deno.test("GET /todos returns standardized JSON 405 with Allow", async (): Promise<void> => {
