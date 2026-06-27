@@ -1,5 +1,6 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
 import { jsonError } from "./src/http_errors.ts";
+import { createTodo } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 
@@ -48,6 +49,33 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     return methodNotAllowed("GET, POST");
+  }
+
+  if (url.pathname === "/todos") {
+    if (req.method !== "POST") {
+      return methodNotAllowed("POST");
+    }
+
+    let body: unknown;
+
+    try {
+      body = await req.json();
+    } catch {
+      return jsonError("invalid_payload", "Invalid JSON payload", 400);
+    }
+
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return jsonError("invalid_title", "Title is required", 400);
+    }
+
+    const title = (body as { title?: unknown }).title;
+
+    if (typeof title !== "string" || title.trim().length === 0) {
+      return jsonError("invalid_title", "Title is required", 400);
+    }
+
+    const todo = createTodo(title.trim());
+    return Response.json(todo, { status: 201 });
   }
 
   if (url.pathname === "/") {
