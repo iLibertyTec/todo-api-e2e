@@ -41,16 +41,52 @@ async function readJsonBody(req: Request): Promise<unknown> {
     }
   }
 
-  const bodyText = await req.text();
-
-  if (bodyText.length === 0) {
+  if (req.body === null) {
     throw new Error("missing_body");
   }
 
-  const bodySize = new TextEncoder().encode(bodyText).length;
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
 
-  if (bodySize > MAX_JSON_BODY_BYTES) {
-    throw new Error("payload_too_large");
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      if (value !== undefined) {
+        totalBytes += value.byteLength;
+
+        if (totalBytes > MAX_JSON_BODY_BYTES) {
+          throw new Error("payload_too_large");
+        }
+
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes === 0) {
+    throw new Error("missing_body");
+  }
+
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  const bodyText = new TextDecoder().decode(bodyBytes);
+
+  if (bodyText.trim().length === 0) {
+    throw new Error("missing_body");
   }
 
   try {
@@ -58,6 +94,10 @@ async function readJsonBody(req: Request): Promise<unknown> {
   } catch {
     throw new Error("invalid_json");
   }
+}
+
+function countUnicodeCodePoints(value: string): number {
+  return Array.from(value).length;
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -103,7 +143,11 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!isJsonMediaType(req.headers.get("content-type"))) {
-      return jsonError("invalid_content_type", "Content-Type must be application/json", 400);
+      return jsonError(
+        "invalid_content_type",
+        "Content-Type must be application/json",
+        400,
+      );
     }
 
     let body: unknown;
@@ -132,15 +176,21 @@ export async function handler(req: Request): Promise<Response> {
 
     const title = (body as { title?: unknown }).title;
 
-    if (typeof title !== "string" || title.trim().length === 0) {
+    if (typeof title !== "string") {
       return jsonError("invalid_title", "Title is required", 400);
     }
 
-    if (title.length > MAX_TODO_TITLE_LENGTH) {
+    const normalizedTitle = title.trim();
+
+    if (normalizedTitle.length === 0) {
+      return jsonError("invalid_title", "Title is required", 400);
+    }
+
+    if (countUnicodeCodePoints(normalizedTitle) > MAX_TODO_TITLE_LENGTH) {
       return jsonError("invalid_title", "Title is too long", 400);
     }
 
-    const todo = createTodo(title);
+    const todo = createTodo(normalizedTitle);
     return Response.json(todo, { status: 201 });
   }
 
