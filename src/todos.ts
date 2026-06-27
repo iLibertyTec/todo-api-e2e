@@ -17,3 +17,8 @@ export function createTodo(title: string): Todo {
   todos.push(todo);
   return todo;
 }
+
+// In-memory and ephemeral storage for this PoC. Data is reset on reload/restart.
+export function listTodos(): readonly Todo[] {
+  return todos;
+}

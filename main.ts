@@ -4,6 +4,7 @@ import { createTodo } from "./src/todos.ts";
 
 const counter = new VisitCounter();
 const MAX_TODO_TITLE_LENGTH = 200;
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
 
 function methodNotAllowed(allow: string): Response {
   const response = jsonError(
@@ -13,6 +14,41 @@ function methodNotAllowed(allow: string): Response {
   );
   response.headers.set("allow", allow);
   return response;
+}
+
+function isJsonMediaType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+
+  if (!mediaType) {
+    return false;
+  }
+
+  return mediaType === "application/json" || mediaType.endsWith("+json");
+}
+
+async function readJsonBody(req: Request): Promise<unknown> {
+  const contentLength = req.headers.get("content-length");
+
+  if (contentLength !== null) {
+    const parsedLength = Number(contentLength);
+
+    if (Number.isFinite(parsedLength) && parsedLength > MAX_JSON_BODY_BYTES) {
+      throw new Error("payload_too_large");
+    }
+  }
+
+  const bodyText = await req.text();
+  const bodySize = new TextEncoder().encode(bodyText).length;
+
+  if (bodySize > MAX_JSON_BODY_BYTES) {
+    throw new Error("payload_too_large");
+  }
+
+  return JSON.parse(bodyText) as unknown;
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -57,15 +93,19 @@ export async function handler(req: Request): Promise<Response> {
       return methodNotAllowed("POST");
     }
 
-    if (!req.headers.get("content-type")?.includes("application/json")) {
+    if (!isJsonMediaType(req.headers.get("content-type"))) {
       return jsonError("invalid_payload", "Invalid JSON payload", 400);
     }
 
     let body: unknown;
 
     try {
-      body = await req.json();
-    } catch {
+      body = await readJsonBody(req);
+    } catch (error) {
+      if (error instanceof Error && error.message === "payload_too_large") {
+        return jsonError("payload_too_large", "Payload too large", 413);
+      }
+
       return jsonError("invalid_payload", "Invalid JSON payload", 400);
     }
 

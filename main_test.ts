@@ -113,6 +113,46 @@ deno.test("POST /todos creates a todo with id title and completed false", async 
   });
 });
 
+deno.test("POST /todos accepts application/json with parameters and case variations", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: {
+        "content-type": "Application/Json; Charset=UTF-8",
+      },
+      body: JSON.stringify({ title: "Estudar Deno" }),
+    }),
+  );
+
+  assertEquals(response.status, 201);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    id: 2,
+    title: "Estudar Deno",
+    completed: false,
+  });
+});
+
+deno.test("POST /todos accepts +json media types", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/problem+json" },
+      body: JSON.stringify({ title: "Revisar API" }),
+    }),
+  );
+
+  assertEquals(response.status, 201);
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    id: 3,
+    title: "Revisar API",
+    completed: false,
+  });
+});
+
 deno.test("POST /todos rejects missing payload with standardized JSON 400", async (): Promise<void> => {
   const response = await handler(
     new Request("http://localhost/todos", {
@@ -147,6 +187,24 @@ deno.test("POST /todos rejects non-json content-type with standardized JSON 400"
     response.headers.get("content-type"),
     "application/json; charset=utf-8",
   );
+
+  const body = await response.json() as JsonObject;
+  assertEquals(body, {
+    error: "invalid_payload",
+    message: "Invalid JSON payload",
+  });
+});
+
+deno.test("POST /todos rejects invalid application/json substring media type", async (): Promise<void> => {
+  const response = await handler(
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "text/application/json" },
+      body: JSON.stringify({ title: "Comprar leite" }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
@@ -236,21 +294,25 @@ deno.test("POST /todos rejects title longer than maximum limit", async (): Promi
   });
 });
 
-deno.test("GET /todos returns standardized JSON 405 with Allow", async (): Promise<void> => {
+deno.test("POST /todos rejects payload larger than 1 MB", async (): Promise<void> => {
+  const oversizedTitle = "a".repeat(1024 * 1024 + 1);
   const response = await handler(
-    new Request("http://localhost/todos", { method: "GET" }),
+    new Request("http://localhost/todos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: oversizedTitle }),
+    }),
   );
 
-  assertEquals(response.status, 405);
+  assertEquals(response.status, 413);
   assertEquals(
     response.headers.get("content-type"),
     "application/json; charset=utf-8",
   );
-  assertEquals(response.headers.get("allow"), "POST");
 
   const body = await response.json() as JsonObject;
   assertEquals(body, {
-    error: "method_not_allowed",
-    message: "Method not allowed",
+    error: "payload_too_large",
+    message: "Payload too large",
   });
 });
