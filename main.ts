@@ -1,8 +1,8 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
+import { SERVICE_NAME } from "./src/config/service.ts";
 import { handleHealth } from "./src/handlers/health.ts";
 import { handleCreateTodo, handleListTodos } from "./src/handlers/todos.ts";
 import { MemoryTodoStore } from "./src/storage/memoryTodoStore.ts";
-import { SERVICE_NAME } from "./src/config/service.ts";
 
 const counter = new VisitCounter();
 const todoStore = new MemoryTodoStore();
@@ -31,8 +31,9 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
+    const body: Record<string, unknown> = req.headers.get("content-type")
+        ?.includes("json")
+      ? await req.json().catch((): Record<string, unknown> => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
